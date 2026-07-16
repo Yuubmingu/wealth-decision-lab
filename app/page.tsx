@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, BarChart3, BriefcaseBusiness, Building2, CarFront, ChartPie, Coins, Eye, Home as HouseIcon, LockKeyhole, Scale, Sigma, Target } from "lucide-react";
-import { AdPlaceholder } from "./components/SiteChrome";
 
 const calculators = [
   {
@@ -147,8 +146,6 @@ export default function Home() {
         <div className="method-statement"><span>연구 원칙</span><h2>미래를 단정하지 않고,<br />가정을 투명하게 공개합니다.</h2></div>
         <div className="principle-list"><div><b>01</b><h3>같은 입력, 같은 결과</h3><p>상황에 따라 달라지는 조언 대신 공개된 공식으로 반복 계산합니다.</p></div><div><b>02</b><h3>확정 금액과 기대 금액 분리</h3><p>기본급과 성과급처럼 확실성이 다른 숫자를 구분하여 계산합니다.</p></div><div><b>03</b><h3>계산의 한계 공개</h3><p>세금, 물가, 시장 변동 등 반영하지 못한 조건도 결과와 함께 안내합니다.</p></div></div>
       </section>
-
-      <AdPlaceholder />
 
       <section className="guide-preview shell"><div className="section-lead"><div><p className="eyebrow">FIELD NOTES</p><h2>계산 결과를 해석하는 방법</h2></div><Link href="/guides" className="quiet-link">가이드 전체 보기 <ArrowRight size={16} /></Link></div><div className="guide-list"><Link href="/guides/rent-100k-15years"><span>주거비 · 7분</span><h3>월세 10만원 차이가 15년 뒤 자산에 미치는 영향</h3><ArrowRight /></Link><Link href="/guides/base-vs-bonus"><span>이직 · 6분</span><h3>이직할 때 기본급과 성과급을 구분해야 하는 이유</h3><ArrowRight /></Link><Link href="/guides/salary-10m"><span>연봉 · 5분</span><h3>연봉 1,000만원 상승분을 투자했을 때의 장기 효과</h3><ArrowRight /></Link></div></section>
     </main>

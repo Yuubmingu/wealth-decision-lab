@@ -3,7 +3,7 @@ import { guides } from "./guides/data";
 
 export const dynamic = "force-static";
 
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wealth-decision-lab.fotochalkak.chatgpt.site").replace(/\/$/, "");
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wealth-decision-lab.pages.dev").replace(/\/$/, "");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
