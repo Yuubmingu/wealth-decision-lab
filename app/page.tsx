@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BarChart3, BriefcaseBusiness, Building2, CarFront, ChartPie, Coins, Eye, Home as HouseIcon, LockKeyhole, Scale, Sigma, Target } from "lucide-react";
+import { createPageMetadata, defaultDescription, siteName } from "./seo";
+
+export const metadata: Metadata = createPageMetadata({
+  title: siteName,
+  description: defaultDescription,
+  path: "/",
+  keywords: ["재테크 계산기", "내 집 마련 계산기", "월세 절약 계산기", "대출 상환 계산기", "이직 연봉 비교"],
+});
 
 const calculators = [
   {

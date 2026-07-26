@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { DebtVsInvestCalculator } from "../../components/DecisionCalculators";
 import { PageIntro } from "../../components/SiteChrome";
+import { createPageMetadata } from "../../seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "대출 상환 vs 투자 계산기",
   description: "같은 목돈과 월 여유자금을 대출 상환 또는 투자에 사용할 때 15년 뒤 순자산과 완납 시점을 비교합니다.",
-};
+  path: "/calculators/debt-vs-invest",
+  keywords: ["대출 상환 투자 비교", "중도상환 계산기", "대출 이자 투자 수익 비교"],
+});
 
 export default function Page() {
   return <main>

@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import { StaticPage } from "../components/StaticPage";
 import { analyticsConfig } from "../config";
+import { createPageMetadata } from "../seo";
+
+export const metadata: Metadata = createPageMetadata({
+  title: "문의",
+  description: "계산 오류, 개선 의견과 사이트 운영 관련 문의 방법을 안내합니다.",
+  path: "/contact",
+});
 
 export default function Page() {
   const email = analyticsConfig.contactEmail.trim();

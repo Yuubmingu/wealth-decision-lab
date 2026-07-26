@@ -74,7 +74,7 @@ Build output directory: dist/client
 Cloudflare Pages의 **Settings → Environment variables**에 아래 변수를 추가하세요. 값은 실제 Pages 주소 또는 연결한 맞춤 도메인으로 바꿉니다.
 
 ```text
-NEXT_PUBLIC_SITE_URL=https://wealth-decision-lab.pages.dev
+NEXT_PUBLIC_SITE_URL=https://yuubmingulab.com
 ```
 
 배포 뒤에는 `/sitemap.xml`, `/robots.txt`, 주요 계산기 페이지가 실제 도메인을 가리키는지 확인하세요.

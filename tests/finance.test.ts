@@ -16,6 +16,7 @@ import {
 } from "../app/lib/finance";
 import {
   calculateHomePurchase,
+  estimateClosingCosts,
   maximumBrokerFee,
   standardAcquisitionTaxRate,
   type HomePurchaseInputs,
@@ -243,9 +244,11 @@ describe("내 집 마련 필요현금 계산", () => {
     seniorClaims: 0,
     taxMode: "auto",
     acquisitionTaxReduction: 0,
+    costEstimateMode: "auto",
     legalFee: 0,
     bondDiscount: 0,
     movingReserve: 0,
+    extraClosingCosts: 0,
   };
 
   it("1주택 일반 취득세율은 6억원 1%, 9억원 3%로 이어진다", () => {
@@ -258,6 +261,20 @@ describe("내 집 마련 필요현금 계산", () => {
     expect(maximumBrokerFee(40_000_000)).toBe(240_000);
     expect(maximumBrokerFee(100_000_000)).toBe(500_000);
     expect(maximumBrokerFee(900_000_000)).toBe(4_500_000);
+  });
+
+  it("생애최초·12억원 이하 주택의 취득세 감면 추정은 최대 200만원이다", () => {
+    const result = calculateHomePurchase(base);
+    expect(result.tax.firstHomeReduction).toBe(2_000_000);
+    expect(result.tax.acquisitionTax).toBe(25_000_000);
+  });
+
+  it("부대비용 자동 추정은 계획값을 만들고 실제 견적 모드에서는 입력값을 쓴다", () => {
+    const automatic = estimateClosingCosts(base);
+    expect(automatic.mode).toBe("auto");
+    expect(automatic.legalFee).toBeGreaterThan(0);
+    const manual = estimateClosingCosts({ ...base, costEstimateMode: "manual", legalFee: 1_200_000, bondDiscount: 800_000, movingReserve: 2_500_000, extraClosingCosts: 300_000 });
+    expect(manual).toMatchObject({ mode: "manual", legalFee: 1_200_000, bondDiscount: 800_000, movingReserve: 2_500_000, extraClosingCosts: 300_000 });
   });
 
   it("수도권 생애최초 LTV는 70%이고 담보평가액을 기준으로 한다", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   Landmark,
   LockKeyhole,
   ReceiptText,
+  RotateCcw,
   ShieldCheck,
   WalletCards,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import {
   calculateHomePurchase,
   recommendedStressRate,
   type HomePurchaseInputs,
+  type CostEstimateMode,
   type HouseholdProfile,
   type HouseType,
   type PolicyLoan,
@@ -40,7 +42,29 @@ function MoneyField({ label, value, onChange, hint }: { label: string; value: nu
 }
 
 function NumberField({ label, value, onChange, unit, hint, step = 1 }: { label: string; value: number; onChange: (value: number) => void; unit: string; hint?: string; step?: number }) {
-  return <label className="field"><span className="field-label">{label}</span><span className="input-wrap"><input inputMode={step < 1 ? "decimal" : "numeric"} step={step} value={value} onChange={(event) => onChange(Math.max(Number(event.target.value) || 0, 0))} /><span>{unit}</span></span>{hint && <small>{hint}</small>}</label>;
+  const decimalPlaces = step < 1 ? String(step).split(".")[1]?.length ?? 0 : 0;
+  const [rawValue, setRawValue] = useState(String(value));
+  useEffect(() => {
+    const numericRawValue = Number(rawValue);
+    if (rawValue === "" || (!rawValue.endsWith(".") && numericRawValue !== value)) setRawValue(String(value));
+  }, [rawValue, value]);
+  const pattern = decimalPlaces > 0 ? new RegExp(`^\\d*(?:\\.\\d{0,${decimalPlaces}})?$`) : /^\d*$/;
+  const commit = (next: string) => {
+    if (next === "" || next === ".") return onChange(0);
+    const parsed = Number(next);
+    if (!Number.isFinite(parsed)) return;
+    const multiplier = 10 ** decimalPlaces;
+    onChange(Math.max(Math.round(parsed * multiplier) / multiplier, 0));
+  };
+  return <label className="field"><span className="field-label">{label}</span><span className="input-wrap"><input type="text" inputMode={decimalPlaces > 0 ? "decimal" : "numeric"} value={rawValue} aria-label={label} onChange={(event) => {
+    const next = event.target.value.replace(/,/g, ".");
+    if (!pattern.test(next)) return;
+    setRawValue(next);
+    if (!next.endsWith(".")) commit(next);
+  }} onBlur={() => {
+    commit(rawValue);
+    setRawValue(String(Math.max(Number(rawValue) || 0, 0)));
+  }} /><span>{unit}</span></span>{hint && <small>{hint}</small>}</label>;
 }
 
 function SelectField({ label, value, onChange, children, hint }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode; hint?: string }) {
@@ -80,9 +104,11 @@ const defaults: HomePurchaseInputs = {
   seniorClaims: 0,
   taxMode: "auto",
   acquisitionTaxReduction: 0,
+  costEstimateMode: "auto",
   legalFee: 1_500_000,
   bondDiscount: 1_000_000,
   movingReserve: 3_000_000,
+  extraClosingCosts: 0,
 };
 
 export function HomePurchaseCalculator() {
@@ -126,7 +152,7 @@ export function HomePurchaseCalculator() {
           <MoneyField label="잔금일 사용 가능 현금" value={input.availableCash} onChange={(value) => update("availableCash", value)} />
           <MoneyField label="이미 낸 계약금" value={input.paidDeposit} onChange={(value) => update("paidDeposit", value)} />
           <MoneyField label="회사대출 가능액" value={input.companyLoanAmount} onChange={(value) => update("companyLoanAmount", value)} />
-          <NumberField label="회사대출 금리" value={input.companyLoanRate} onChange={(value) => update("companyLoanRate", value)} unit="%" step={0.1} />
+          <NumberField label="회사대출 금리" value={input.companyLoanRate} onChange={(value) => update("companyLoanRate", value)} unit="%" step={0.01} hint="소수점 둘째 자리까지 입력" />
           <NumberField label="회사대출 상환기간" value={input.companyLoanYears} onChange={(value) => update("companyLoanYears", value)} unit="년" />
         </div>
         <ToggleField label="회사대출을 DSR에 반영합니다" checked={input.companyLoanInDsr} onChange={(value) => update("companyLoanInDsr", value)} description="금융기관 연계대출이거나 신용정보에 반영되는 경우 선택해 주세요." />
@@ -135,22 +161,23 @@ export function HomePurchaseCalculator() {
         <div className="field-grid">
           <MoneyField label="기존 대출 연간 원리금" value={input.existingAnnualDebtService} onChange={(value) => update("existingAnnualDebtService", value)} />
           <MoneyField label="기존 대출 연간 이자" value={input.existingAnnualInterest} onChange={(value) => update("existingAnnualInterest", value)} />
-          <NumberField label="주담대 예상금리" value={input.mortgageRate} onChange={(value) => update("mortgageRate", value)} unit="%" step={0.1} />
+          <NumberField label="주담대 예상금리" value={input.mortgageRate} onChange={(value) => update("mortgageRate", value)} unit="%" step={0.01} hint="소수점 둘째 자리까지 입력" />
           <SelectField label="희망 상환기간" value={String(input.mortgageYears)} onChange={(value) => update("mortgageYears", Number(value))}><option value="10">10년</option><option value="15">15년</option><option value="20">20년</option><option value="30">30년</option><option value="40">40년</option><option value="50">50년</option></SelectField>
-          <NumberField label="스트레스 금리" value={input.stressRate} onChange={(value) => update("stressRate", value)} unit="%p" step={0.1} hint="실제 납부금리가 아닌 DSR 심사용 가산값입니다." />
+          <NumberField label="스트레스 금리" value={input.stressRate} onChange={(value) => update("stressRate", value)} unit="%p" step={0.01} hint="소수점 둘째 자리까지 · 실제 납부금리가 아닌 DSR 심사용 가산값" />
           <MoneyField label="방공제 예상액" value={input.roomDeduction} onChange={(value) => update("roomDeduction", value)} />
           <MoneyField label="선순위채권·임차보증금" value={input.seniorClaims} onChange={(value) => update("seniorClaims", value)} />
         </div>
         <label className="range-field"><span>DSR 한도 직접 조정 <strong>{input.dsrLimit}%</strong></span><input type="range" min="20" max="50" step="1" value={input.dsrLimit} onChange={(event) => update("dsrLimit", Number(event.target.value))} /></label>
 
-        <div className="property-step"><span>05</span><div><h3>세금과 부대비용</h3><p>자동 추정치를 쓰거나 취득세율 유형을 직접 지정할 수 있습니다.</p></div></div>
+        <div className="property-step"><span>05</span><div><h3>세금과 부대비용</h3><p>세금은 조건에 따라 계산하고, 부대비용은 계획용 자동값 또는 실제 견적을 선택할 수 있습니다.</p></div></div>
         <div className="field-grid">
           <SelectField label="취득세 계산 유형" value={input.taxMode} onChange={(value) => update("taxMode", value as TaxMode)}><option value="auto">주택 수·지역으로 자동 추정</option><option value="standard">1주택 일반세율 1~3%</option><option value="eight">중과세율 8%</option><option value="twelve">중과세율 12%</option></SelectField>
-          <MoneyField label="취득세 감면 예상액" value={input.acquisitionTaxReduction} onChange={(value) => update("acquisitionTaxReduction", value)} />
-          <MoneyField label="등기·법무비용 예상" value={input.legalFee} onChange={(value) => update("legalFee", value)} />
-          <MoneyField label="국민주택채권 할인비용" value={input.bondDiscount} onChange={(value) => update("bondDiscount", value)} />
-          <MoneyField label="이사·수리 예비비" value={input.movingReserve} onChange={(value) => update("movingReserve", value)} />
+          <MoneyField label="추가 취득세 감면 입력" value={input.acquisitionTaxReduction} onChange={(value) => update("acquisitionTaxReduction", value)} hint="생애최초 감면 추정(최대 200만원)은 조건 충족 시 자동 반영됩니다." />
+          <SelectField label="부대비용 계산 방식" value={input.costEstimateMode} onChange={(value) => update("costEstimateMode", value as CostEstimateMode)} hint="자동값은 잔금 계획용 기준입니다."><option value="auto">자동 추정값 사용</option><option value="manual">실제 견적 직접 입력</option></SelectField>
+          <MoneyField label="기타 계약·대출비용" value={input.extraClosingCosts} onChange={(value) => update("extraClosingCosts", value)} hint="인지·감정·보증료 등 별도 비용이 있으면 합산해 입력" />
         </div>
+        {input.costEstimateMode === "auto" ? <div className="estimate-note"><Info size={15} /><span><b>자동 부대비용 기준:</b> 등기·법무비용은 매매가의 0.15%(80만~350만원), 채권 할인은 0.10%(30만~300만원), 이사·기본수리 예비비는 0.30%(200만~1,000만원)로 계획합니다. 실제 법무사 견적을 받으면 ‘직접 입력’으로 바꿔 주세요.</span></div> : <div className="field-grid manual-cost-fields"><MoneyField label="등기·법무비용 견적" value={input.legalFee} onChange={(value) => update("legalFee", value)} /><MoneyField label="국민주택채권 할인 견적" value={input.bondDiscount} onChange={(value) => update("bondDiscount", value)} hint="등기일 시가표준액·할인율 기준" /><MoneyField label="이사·수리 예비비" value={input.movingReserve} onChange={(value) => update("movingReserve", value)} /></div>}
+        <button type="button" className="home-reset" onClick={() => setInput(defaults)}><RotateCcw size={14} /> 예시 입력값으로 초기화</button>
       </section>
 
       <section className="result-panel" aria-live="polite">
@@ -158,7 +185,7 @@ export function HomePurchaseCalculator() {
         <div className="verdict-line"><span>잔금일에 추가로 필요한 현금</span><strong className="verdict">{compactMoney(result.closingCashNeeded)}</strong><p>이미 낸 계약금을 제외하고 매매 잔금과 구입 부대비용을 합산했습니다.</p></div>
         <div className="kpi-grid">
           <div className="kpi kpi-green"><span>최대 주택담보대출</span><strong>{compactMoney(result.finalMortgage)}</strong><small>{result.bindingLimit.label}이 최종 한도를 결정했습니다.</small></div>
-          <div className="kpi"><span>주담대 월 상환액</span><strong>{won(result.mortgageMonthlyPayment)}</strong><small>{result.effectiveYears}년 원리금균등 · 실제금리 {input.mortgageRate}%</small></div>
+          <div className="kpi"><span>주담대 월 상환액</span><strong>{won(result.mortgageMonthlyPayment)}</strong><small>{result.effectiveYears}년 원리금균등 · 실제금리 {input.mortgageRate.toFixed(2)}%</small></div>
           <div className={`kpi ${result.cashGap > 0 ? "kpi-rust" : "kpi-green"}`}><span>보유현금 대비</span><strong>{result.cashGap > 0 ? `${compactMoney(result.cashGap)} 부족` : `${compactMoney(result.cashGap)} 여유`}</strong><small>잔금일 사용 가능 현금과 비교</small></div>
         </div>
 
@@ -178,16 +205,19 @@ export function HomePurchaseCalculator() {
           return <div className={`limit-row ${active ? "active" : ""} ${!limit.binding ? "reference" : ""}`} key={limit.key}><div><span>{limit.label}{!limit.binding ? " · 참고값" : ""}</span><strong>{finite ? compactMoney(limit.value) : "별도 한도 없음"}</strong></div><div className="limit-track"><i style={{ width: `${finite ? Math.max(limit.value / maximum * 100, 2) : 100}%` }} /></div>{active && <b>최종 병목</b>}{!limit.binding && <em>정책대출은 DSR 한도 산정에서 제외</em>}</div>;
         })}</div>
 
-        <div className="funding-summary"><div><WalletCards size={17} /><span>총 자기자금</span><strong>{compactMoney(result.totalEquityNeeded)}</strong><small>계약금 포함 · 부대비용 포함</small></div><div><CalendarClock size={17} /><span>월 전체 부채상환</span><strong>{won(result.totalMonthlyDebt)}</strong><small>기존대출 + 주담대 + 회사대출</small></div><div><ReceiptText size={17} /><span>예상 실제 DSR</span><strong>{result.actualDsr.toFixed(1)}%</strong><small>정책대출 여부와 무관한 현금흐름 참고값</small></div></div>
+        <div className="funding-summary"><div><WalletCards size={17} /><span>총 자기자금</span><strong>{compactMoney(result.totalEquityNeeded)}</strong><small>계약금 포함 · 부대비용 포함</small></div><div><CalendarClock size={17} /><span>월 전체 부채상환</span><strong>{won(result.totalMonthlyDebt)}</strong><small>기존대출 + 주담대 + 회사대출</small></div><div><ReceiptText size={17} /><span>예상 실제 DSR</span><strong>{result.actualDsr.toFixed(2)}%</strong><small>정책대출 여부와 무관한 현금흐름 참고값</small></div></div>
 
         <div className="cost-ledger"><div className="chart-heading"><h3>주택 구입비용 명세</h3><span>매매대금 외 잔금일까지 준비할 금액</span></div>
-          <div><span>취득세 예상 · 세율 {result.tax.rate.toFixed(2)}%</span><strong>{won(result.tax.acquisitionTax)}</strong></div>
+          <div><span>취득세 산출세액 · 세율 {result.tax.rate.toFixed(2)}%</span><strong>{won(result.tax.grossAcquisitionTax)}</strong></div>
+          {result.tax.firstHomeReduction > 0 && <div><span>생애최초 취득세 감면 추정</span><strong>−{won(result.tax.firstHomeReduction)}</strong></div>}
+          {result.tax.manualReduction > 0 && <div><span>추가 취득세 감면 입력</span><strong>−{won(result.tax.manualReduction)}</strong></div>}
           <div><span>지방교육세 예상</span><strong>{won(result.tax.localEducationTax)}</strong></div>
           <div><span>농어촌특별세 예상</span><strong>{won(result.tax.ruralSpecialTax)}</strong></div>
           <div><span>중개보수 상한 예상</span><strong>{won(result.brokerFee)}</strong></div>
-          <div><span>등기·법무비용 입력값</span><strong>{won(input.legalFee)}</strong></div>
-          <div><span>채권할인비용 입력값</span><strong>{won(input.bondDiscount)}</strong></div>
-          <div><span>이사·수리 예비비</span><strong>{won(input.movingReserve)}</strong></div>
+          <div><span>등기·법무비용 {result.closingCosts.mode === "auto" ? "자동 추정" : "직접 입력"}</span><strong>{won(result.closingCosts.legalFee)}</strong></div>
+          <div><span>채권할인비용 {result.closingCosts.mode === "auto" ? "자동 추정" : "직접 입력"}</span><strong>{won(result.closingCosts.bondDiscount)}</strong></div>
+          <div><span>이사·수리 예비비 {result.closingCosts.mode === "auto" ? "자동 추정" : "직접 입력"}</span><strong>{won(result.closingCosts.movingReserve)}</strong></div>
+          {result.closingCosts.extraClosingCosts > 0 && <div><span>기타 계약·대출비용</span><strong>{won(result.closingCosts.extraClosingCosts)}</strong></div>}
           <div className="ledger-total"><span>총 구입 부대비용</span><strong>{compactMoney(result.totalPurchaseCosts)}</strong></div>
         </div>
 
@@ -195,12 +225,12 @@ export function HomePurchaseCalculator() {
 
         <div className="balance-section"><div className="chart-heading"><h3>원금 감소 예시</h3><span>{result.effectiveYears}년 원리금균등 기준</span></div><div className="balance-grid">{result.milestones.map((milestone) => <div key={milestone.year}><span>{milestone.year}년 후</span><strong>{compactMoney(milestone.balance)}</strong><i style={{ width: `${result.finalMortgage ? milestone.balance / result.finalMortgage * 100 : 0}%` }} /></div>)}</div></div>
 
-        <div className="interest-summary"><div><span>주담대 총이자</span><strong>{compactMoney(result.mortgageTotalInterest)}</strong></div><div><span>회사대출 총이자</span><strong>{compactMoney(result.companyTotalInterest)}</strong></div><div><span>심사 적용금리</span><strong>{(input.mortgageRate + input.stressRate).toFixed(1)}%</strong><small>실제 납부금리 아님</small></div></div>
+        <div className="interest-summary"><div><span>주담대 총이자</span><strong>{compactMoney(result.mortgageTotalInterest)}</strong></div><div><span>회사대출 총이자</span><strong>{compactMoney(result.companyTotalInterest)}</strong></div><div><span>심사 적용금리</span><strong>{(input.mortgageRate + input.stressRate).toFixed(2)}%</strong><small>실제 납부금리 아님</small></div></div>
 
         {result.warnings.map((warning) => <div className="warning-strip compact-warning" key={warning}><Info size={16} /><span>{warning}</span></div>)}
-        <details className="formula-details"><summary>계산 순서와 공식 보기 <ChevronDown size={16} /></summary><div><p>최대 주담대는 LTV, DTI, DSR, 지역·상품 절대한도 중 실제 적용되는 가장 낮은 금액으로 계산합니다.</p><p>LTV 기준 담보가액은 매매가격과 입력한 담보평가액 중 낮은 금액이며, 방공제와 선순위채권을 차감합니다.</p><p>정책대출은 일반 DSR 규제 대신 상품별 LTV·DTI와 자격·한도를 적용했으며, 실제 심사는 공사의 업무처리기준을 따릅니다.</p><p>취득세는 입력한 주택 수·지역 조합의 일반적인 세율을 추정한 값입니다. 감면과 주택 수 예외는 지방세 담당기관에서 확인해 주세요.</p></div></details>
+        <details className="formula-details"><summary>계산 순서와 공식 보기 <ChevronDown size={16} /></summary><div><p>최대 주담대는 LTV, DTI, DSR, 지역·상품 절대한도 중 실제 적용되는 가장 낮은 금액으로 계산합니다.</p><p>LTV 기준 담보가액은 매매가격과 입력한 담보평가액 중 낮은 금액이며, 방공제와 선순위채권을 차감합니다.</p><p>정책대출은 일반 DSR 규제 대신 상품별 LTV·DTI와 자격·한도를 적용했으며, 실제 심사는 공사의 업무처리기준을 따릅니다.</p><p>생애최초 취득세 감면은 무주택·12억원 이하 등 기본 조건에서 최대 200만원을 자동 추정합니다. 공동명의, 기존 소유 이력 예외와 사후 거주요건은 관할 지방자치단체에 확인해 주세요.</p><p>국민주택채권 할인액은 등기 접수일 시가표준액과 당일 할인율로 달라지므로, 자동값은 잔금 계획용입니다.</p></div></details>
 
-        <div className="official-sources"><strong>공식 기준 확인</strong><div><a href="https://www.fsc.go.kr/no010101/87222" target="_blank" rel="noreferrer">금융위원회 규제지역 대출규제</a><a href="https://www.fsc.go.kr/no010101/84824" target="_blank" rel="noreferrer">금융위원회 가계부채 관리방안</a><a href="https://www.hf.go.kr/ko/sub01/sub01_02_01.do" target="_blank" rel="noreferrer">한국주택금융공사 디딤돌대출</a><a href="https://www.hf.go.kr/ko/sub01/sub01_01_01.do" target="_blank" rel="noreferrer">한국주택금융공사 보금자리론</a></div></div>
+        <div className="official-sources"><strong>공식 기준 확인</strong><div><a href="https://www.fsc.go.kr/no010101/87222" target="_blank" rel="noreferrer">금융위원회 규제지역 대출규제</a><a href="https://www.fsc.go.kr/no010101/84824" target="_blank" rel="noreferrer">금융위원회 가계부채 관리방안</a><a href="https://www.law.go.kr/LSW/lsSideInfoP.do?docCls=jo&joBrNo=03&joNo=0036&lsiSeq=286607&urlMode=lsScJoRltInfoR" target="_blank" rel="noreferrer">생애최초 취득세 감면 기준</a><a href="https://www.law.go.kr/LSW/lsPdfPrint.do?ancYnChk=0&bylChaChk=N&efGubun=Y&efYd=20220819&joAllCheck=Y&joEfOutPutYn=on&lsiSeq=244355&mokChaChk=N" target="_blank" rel="noreferrer">국민주택채권 등기 기준</a><a href="https://irts.molit.go.kr/com/cmn/popup/fee/rtecsFeeRtoPopup.do" target="_blank" rel="noreferrer">국토교통부 중개보수 안내</a><a href="https://www.hf.go.kr/ko/sub01/sub01_01_01.do" target="_blank" rel="noreferrer">한국주택금융공사 보금자리론</a></div></div>
         <aside className="disclaimer-box"><strong>계약 전 반드시 다시 확인해 주세요</strong><p>본 결과는 입력값과 공개 정책을 바탕으로 한 사전 시뮬레이션이며 금융회사의 대출 승인, 세금 또는 법률 판단을 보장하지 않습니다. 실제 계약 전 금융회사, 한국주택금융공사, 관할 지방자치단체와 전문가에게 확인해 주세요.</p></aside>
       </section>
     </div>

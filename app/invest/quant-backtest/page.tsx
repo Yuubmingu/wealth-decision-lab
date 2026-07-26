@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { QuantBacktestWorkbench } from "../../components/backtest/QuantBacktestWorkbench";
 import { PageIntro } from "../../components/SiteChrome";
+import { createPageMetadata } from "../../seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "정량 투자 기준 백테스트",
   description: "재무제표가 공개된 당시의 정보와 수정주가 CSV를 사용해 정량 투자 기준의 과거 성과, CAGR, MDD와 거래내역을 검증합니다.",
-};
+  path: "/invest/quant-backtest",
+  keywords: ["주식 백테스트", "퀀트 백테스트", "CAGR MDD 계산"],
+});
 
 const faqs = [
   ["백테스트는 종목 추천인가요?", "아닙니다. 사용자가 정한 기준이 과거 데이터에서 보인 성과와 위험을 검증하는 연구 도구입니다."],
@@ -26,4 +29,3 @@ export default function QuantBacktestPage() {
     <section className="shell backtest-faq"><div><p className="eyebrow">FAQ</p><h2>결과를 믿기 전에 확인할 질문</h2></div><div>{faqs.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></section>
   </main>;
 }
-

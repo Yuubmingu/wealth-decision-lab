@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import { StaticPage } from "../components/StaticPage";
 import { analyticsConfig } from "../config";
+import { createPageMetadata } from "../seo";
+
+export const metadata: Metadata = createPageMetadata({
+  title: "개인정보처리방침",
+  description: "계산기 입력값, 브라우저 저장, 분석 도구와 광고 쿠키 처리 방침을 안내합니다.",
+  path: "/privacy",
+});
 
 export default function Page() {
   const analyticsEnabled = Boolean(analyticsConfig.googleAnalyticsMeasurementId);

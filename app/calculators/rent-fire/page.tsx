@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { RentFireCalculator } from "../../components/CalculatorUI";
 import { PageIntro } from "../../components/SiteChrome";
+import { createPageMetadata } from "../../seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "월세 절약 자산증가 계산기",
   description: "월세를 줄여 아낀 돈을 투자했을 때 5년, 10년, 15년 뒤 늘어나는 자산과 목표자산 도달 시점을 계산합니다.",
-};
+  path: "/calculators/rent-fire",
+  keywords: ["월세 절약 계산기", "월세 아끼면", "월세 투자 계산기"],
+});
 
 export default function Page() {
   return (

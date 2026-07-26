@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import { StaticPage } from "../components/StaticPage";
+import { createPageMetadata } from "../seo";
+
+export const metadata: Metadata = createPageMetadata({
+  title: "사이트 소개와 운영 원칙",
+  description: "부자 회사원의 의사결정 연구소를 만든 이유, 계산 원칙과 운영자 경험을 소개합니다.",
+  path: "/about",
+});
 
 export default function Page() {
   return (

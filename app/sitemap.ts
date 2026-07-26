@@ -1,9 +1,8 @@
 import type { MetadataRoute } from "next";
 import { guides } from "./guides/data";
+import { siteUrl } from "./seo";
 
 export const dynamic = "force-static";
-
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://wealth-decision-lab.pages.dev").replace(/\/$/, "");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [

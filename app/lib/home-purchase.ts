@@ -9,6 +9,7 @@ export type PolicyLoan = "none" | "didimdol" | "bogeumjari";
 export type HouseholdProfile = "general" | "newlywed" | "one-child" | "two-plus-children";
 export type HouseType = "apartment" | "other";
 export type TaxMode = "auto" | "standard" | "eight" | "twelve";
+export type CostEstimateMode = "auto" | "manual";
 
 export type HomePurchaseInputs = {
   purchasePrice: number;
@@ -39,9 +40,11 @@ export type HomePurchaseInputs = {
   seniorClaims: number;
   taxMode: TaxMode;
   acquisitionTaxReduction: number;
+  costEstimateMode: CostEstimateMode;
   legalFee: number;
   bondDiscount: number;
   movingReserve: number;
+  extraClosingCosts: number;
 };
 
 export type PolicyDiagnosis = {
@@ -206,16 +209,63 @@ export function diagnosePolicy(input: HomePurchaseInputs): PolicyDiagnosis {
   };
 }
 
+function roundToTenThousand(value: number) {
+  return Math.round(value / 10_000) * 10_000;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * 법정 수수료가 아닌, 계약 전 현금계획을 위한 보수적인 기준값입니다.
+ * 국민주택채권 할인액은 등기일의 시가표준액과 당일 할인율에 따라 달라지므로
+ * 실제 법무사 견적을 받으면 manual 모드로 바꾸어 그대로 입력해야 합니다.
+ */
+export function estimateClosingCosts(input: Pick<HomePurchaseInputs, "purchasePrice" | "costEstimateMode" | "legalFee" | "bondDiscount" | "movingReserve" | "extraClosingCosts">) {
+  if (input.costEstimateMode === "manual") {
+    return {
+      legalFee: input.legalFee,
+      bondDiscount: input.bondDiscount,
+      movingReserve: input.movingReserve,
+      extraClosingCosts: input.extraClosingCosts,
+      mode: "manual" as const,
+    };
+  }
+
+  return {
+    // 등기·법무 견적 전 계획값: 매매가의 0.15%, 80만~350만원 범위
+    legalFee: roundToTenThousand(clamp(input.purchasePrice * 0.0015, 800_000, 3_500_000)),
+    // 채권 매입·즉시매도 할인 견적 전 계획값: 매매가의 0.10%, 30만~300만원 범위
+    bondDiscount: roundToTenThousand(clamp(input.purchasePrice * 0.001, 300_000, 3_000_000)),
+    // 이사·기본 수리 예비비 계획값: 매매가의 0.30%, 200만~1,000만원 범위
+    movingReserve: roundToTenThousand(clamp(input.purchasePrice * 0.003, 2_000_000, 10_000_000)),
+    extraClosingCosts: input.extraClosingCosts,
+    mode: "auto" as const,
+  };
+}
+
+function estimatedFirstHomeTaxReduction(input: HomePurchaseInputs, grossAcquisitionTax: number) {
+  const eligible = input.firstHome &&
+    input.currentHouseCount === 0 &&
+    input.purchasePrice <= 1_200_000_000 &&
+    input.taxMode !== "eight" &&
+    input.taxMode !== "twelve";
+  return eligible ? Math.min(grossAcquisitionTax, 2_000_000) : 0;
+}
+
 function taxBreakdown(input: HomePurchaseInputs) {
   const rate = acquisitionTaxRate(input);
   const grossAcquisitionTax = input.purchasePrice * rate / 100;
-  const acquisitionTax = Math.max(grossAcquisitionTax - input.acquisitionTaxReduction, 0);
+  const firstHomeReduction = estimatedFirstHomeTaxReduction(input, grossAcquisitionTax);
+  const totalReduction = Math.min(grossAcquisitionTax, firstHomeReduction + input.acquisitionTaxReduction);
+  const acquisitionTax = Math.max(grossAcquisitionTax - totalReduction, 0);
   const surcharge = rate >= 8;
-  const localEducationTax = surcharge ? input.purchasePrice * 0.004 : acquisitionTax * 0.1;
+  const localEducationTax = surcharge ? input.purchasePrice * 0.004 : grossAcquisitionTax * 0.1;
   const ruralSpecialTax = surcharge
     ? input.purchasePrice * (rate >= 12 ? 0.01 : 0.006)
     : input.areaM2 > 85 ? input.purchasePrice * 0.002 : 0;
-  return { rate, grossAcquisitionTax, acquisitionTax, localEducationTax, ruralSpecialTax };
+  return { rate, grossAcquisitionTax, acquisitionTax, localEducationTax, ruralSpecialTax, firstHomeReduction, manualReduction: input.acquisitionTaxReduction };
 }
 
 export function calculateHomePurchase(input: HomePurchaseInputs) {
@@ -251,8 +301,9 @@ export function calculateHomePurchase(input: HomePurchaseInputs) {
 
   const tax = taxBreakdown(input);
   const brokerFee = maximumBrokerFee(input.purchasePrice);
+  const closingCosts = estimateClosingCosts(input);
   const totalPurchaseCosts = tax.acquisitionTax + tax.localEducationTax + tax.ruralSpecialTax +
-    brokerFee + input.legalFee + input.bondDiscount + input.movingReserve;
+    brokerFee + closingCosts.legalFee + closingCosts.bondDiscount + closingCosts.movingReserve + closingCosts.extraClosingCosts;
   const totalEquityNeeded = Math.max(input.purchasePrice - finalMortgage - input.companyLoanAmount, 0) + totalPurchaseCosts;
   const closingCashNeeded = Math.max(
     input.purchasePrice - input.paidDeposit - finalMortgage - input.companyLoanAmount,
@@ -282,6 +333,8 @@ export function calculateHomePurchase(input: HomePurchaseInputs) {
   if (termLimitWarning) warnings.push("수도권·규제지역의 일반 주담대 만기는 30년 이내로 제한되어 30년으로 계산했습니다.");
   if (input.currentHouseCount > 0) warnings.push("일시적 2주택, 상속주택 등 주택 수 예외와 취득세 중과 배제 여부는 자동 판정하지 않습니다.");
   if (input.taxMode === "auto" && input.currentHouseCount > 0) warnings.push("다주택 취득세는 일반적인 주택 수와 규제지역 조합으로 추정했습니다. 지방세 담당기관에서 반드시 확인해 주세요.");
+  if (input.firstHome && input.purchasePrice > 1_200_000_000) warnings.push("생애최초 취득세 감면은 취득 당시 가액 12억원 이하 주택에 한해 검토됩니다.");
+  if (closingCosts.mode === "auto") warnings.push("등기·법무·채권·이사비는 견적 전 계획값입니다. 국민주택채권 할인액은 등기일 시가표준액과 당일 할인율에 따라 달라집니다.");
   if (input.companyLoanAmount > 0) warnings.push("회사대출이 사내기금인지 금융기관 연계대출인지에 따라 DSR과 담보대출 실행 순서가 달라질 수 있습니다.");
   if (input.roomDeduction === 0) warnings.push("방공제 또는 소액임차보증금 공제가 발생하면 LTV 한도가 더 줄어들 수 있습니다.");
   if (input.paidDeposit > input.purchasePrice) warnings.push("이미 낸 계약금이 매매가격보다 큽니다. 입력값을 다시 확인해 주세요.");
@@ -297,6 +350,7 @@ export function calculateHomePurchase(input: HomePurchaseInputs) {
     finalMortgage,
     tax,
     brokerFee,
+    closingCosts,
     totalPurchaseCosts,
     totalEquityNeeded,
     closingCashNeeded,

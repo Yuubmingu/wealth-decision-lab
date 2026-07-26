@@ -276,6 +276,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
 .toggle-field input:checked + i { background: var(--green); }
 .toggle-field input:checked + i::after { transform: translateX(14px); }
 .toggle-field:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent); }
+.estimate-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px; padding: 12px; border: 1px solid #a8c7b8; border-radius: var(--radius); background: var(--green-pale); color: var(--green-dark); font-size: 10px; line-height: 1.6; }
+.estimate-note svg { flex: 0 0 auto; margin-top: 1px; }
+.manual-cost-fields { margin-top: 14px; }
+.home-reset { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 11px; font-weight: 650; cursor: pointer; }
+.home-reset:hover { color: var(--green); }
 .region-guide { margin-top: 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-muted); }
 .region-guide summary { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; list-style: none; color: var(--ink-soft); font-size: 10px; font-weight: 700; cursor: pointer; }
 .region-guide summary::-webkit-details-marker { display: none; }

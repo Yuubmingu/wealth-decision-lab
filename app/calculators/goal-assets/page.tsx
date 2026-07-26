@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { GoalStrategyCalculator } from "../../components/DecisionCalculators";
 import { PageIntro } from "../../components/SiteChrome";
+import { createPageMetadata } from "../../seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "목표자산 달성 전략 계산기",
   description: "현재자산과 월 투자금으로 목표자산 달성 시점과 15년 목표에 필요한 월 투자금을 계산합니다.",
-};
+  path: "/calculators/goal-assets",
+  keywords: ["목표자산 계산기", "월 투자금 계산기", "경제적 자유 계산기"],
+});
 
 export default function Page() {
   return <main>
