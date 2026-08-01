@@ -68,9 +68,15 @@ export function calculatePerformance(
   const days = Math.max((Date.parse(equity[equity.length - 1].date) - Date.parse(equity[0].date)) / 86_400_000, 1);
   const cumulativeReturn = (factor - 1) * 100;
   const cagr = (Math.pow(factor, 365 / days) - 1) * 100;
-  const mean = returns.reduce((sum, value) => sum + value, 0) / Math.max(returns.length, 1);
-  const variance = returns.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / Math.max(returns.length - 1, 1);
-  const volatility = Math.sqrt(variance) * Math.sqrt(252) * 100;
+  // Each uploaded observation is one return interval. Annualize by the actual
+  // observation frequency so a Friday-to-Monday move is not diluted over three
+  // invented calendar-day returns. Irregular gaps are separately warned about.
+  const meanReturn = returns.reduce((sum, value) => sum + value, 0) / Math.max(returns.length, 1);
+  const variance = returns.length > 1
+    ? returns.reduce((sum, value) => sum + Math.pow(value - meanReturn, 2), 0) / (returns.length - 1)
+    : 0;
+  const observationsPerYear = returns.length * 365 / days;
+  const volatility = Math.sqrt(variance) * Math.sqrt(observationsPerYear) * 100;
   const sharpe = volatility > 0 ? (cagr - riskFreeRate) / volatility : null;
   const benchmarkReturn = hasBenchmark ? (benchmarkFactor - 1) * 100 : null;
   return {
@@ -86,4 +92,3 @@ export function calculatePerformance(
     averageCashWeight: points.reduce((sum, point) => sum + point.cashWeight, 0) / points.length,
   };
 }
-

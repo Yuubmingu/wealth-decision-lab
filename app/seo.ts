@@ -9,25 +9,57 @@ type PageMetadataOptions = {
   description: string;
   path: string;
   keywords?: string[];
+  openGraphType?: "website" | "article";
+  publishedTime?: string;
+  modifiedTime?: string;
 };
 
-export function createPageMetadata({ title, description, path, keywords }: PageMetadataOptions): Metadata {
-  const canonicalPath = path.startsWith("/") ? path : `/${path}`;
+export function pagePath(path: string): string {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return normalized === "/" ? normalized : `${normalized.replace(/\/+$/, "")}/`;
+}
+
+export function pageUrl(path: string): string {
+  return `${siteUrl}${pagePath(path)}`;
+}
+
+export function createPageMetadata({
+  title,
+  description,
+  path,
+  keywords,
+  openGraphType = "website",
+  publishedTime,
+  modifiedTime,
+}: PageMetadataOptions): Metadata {
+  const canonicalPath = pagePath(path);
 
   return {
     title,
     description,
     keywords,
     alternates: { canonical: canonicalPath },
-    openGraph: {
-      title,
-      description,
-      url: canonicalPath,
-      siteName,
-      type: "website",
-      locale: "ko_KR",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: siteName }],
-    },
+    openGraph: openGraphType === "article"
+      ? {
+          title,
+          description,
+          url: canonicalPath,
+          siteName,
+          type: "article",
+          locale: "ko_KR",
+          publishedTime,
+          modifiedTime,
+          images: [{ url: "/og.png", width: 1200, height: 630, alt: siteName }],
+        }
+      : {
+          title,
+          description,
+          url: canonicalPath,
+          siteName,
+          type: "website",
+          locale: "ko_KR",
+          images: [{ url: "/og.png", width: 1200, height: 630, alt: siteName }],
+        },
     twitter: {
       card: "summary_large_image",
       title,

@@ -17,6 +17,9 @@ const numberOrNull = (value: unknown): number | null => {
 const text = (value: unknown) => String(value ?? "").trim();
 
 function parseRaw(csvText: string, required: readonly string[]) {
+  if (new Blob([csvText]).size > 50 * 1024 * 1024) {
+    return { rawRows: [] as Record<string, string>[], headers: [] as string[], missingColumns: [...required], parseErrors: ["CSV 파일은 50MB 이하여야 합니다."] };
+  }
   const parsed = Papa.parse<Record<string, string>>(csvText.replace(/^\uFEFF/, ""), {
     header: true,
     skipEmptyLines: "greedy",
@@ -87,6 +90,9 @@ export function downloadText(filename: string, content: string, type = "text/pla
 }
 
 export function toCsv(rows: Array<Record<string, string | number | null>>) {
-  return Papa.unparse(rows);
+  const safeRows = rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
+    if (typeof value !== "string" || !/^[=+\-@\t\r]/.test(value)) return [key, value];
+    return [key, `'${value}`];
+  })));
+  return Papa.unparse(safeRows);
 }
-

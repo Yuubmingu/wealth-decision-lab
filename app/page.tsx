@@ -87,9 +87,9 @@ const calculators = [
     number: "LAB 04",
     icon: Sigma,
     title: "부의 성장 레버 실행보드",
-    description: "소득, 저축, 투자, 수익률, 부채와 부업 중 이번 분기에 가장 효과가 큰 행동을 찾습니다.",
+    description: "소득, 절약, 투자, 부채상환과 부업에 입력한 가정별 장기 효과를 같은 기간으로 비교합니다.",
     href: "/tools/growth-board",
-    example: "가장 큰 자산효과부터 실행",
+    example: "서로 다른 추정 효과 비교 · 판단은 직접",
   },
   {
     number: "INV 01",

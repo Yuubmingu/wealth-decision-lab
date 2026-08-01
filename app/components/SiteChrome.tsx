@@ -1,5 +1,22 @@
 import Link from "next/link";
-import { ArrowUpRight, FlaskConical } from "lucide-react";
+import { ArrowUpRight, FlaskConical, Menu } from "lucide-react";
+
+const navigationItems = [
+  { href: "/calculators/goal-assets", label: "목표" },
+  { href: "/calculators/rent-fire", label: "월세" },
+  { href: "/calculators/job-offer", label: "이직" },
+  { href: "/calculators/car-cost", label: "자동차" },
+  { href: "/calculators/debt-vs-invest", label: "대출" },
+  { href: "/calculators/home-purchase", label: "내 집" },
+  { href: "/calculators/investment-compare", label: "투자 비교" },
+  { href: "/calculators/lump-sum-vs-dca", label: "분할매수" },
+  { href: "/calculators/rebalancing", label: "리밸런싱" },
+  { href: "/tools/decision-journal", label: "주식 기록장" },
+  { href: "/invest/quant-backtest", label: "백테스트" },
+  { href: "/tools/growth-board", label: "실행보드" },
+  { href: "/guides", label: "가이드" },
+  { href: "/about", label: "소개" },
+] as const;
 
 export function SiteHeader() {
   return (
@@ -9,22 +26,15 @@ export function SiteHeader() {
           <span className="brand-mark"><FlaskConical size={18} strokeWidth={1.8} /></span>
           <span>부자 회사원의<br />의사결정 연구소</span>
         </Link>
-        <nav aria-label="주요 메뉴" className="main-nav">
-          <Link href="/calculators/goal-assets">목표</Link>
-          <Link href="/calculators/rent-fire">월세</Link>
-          <Link href="/calculators/job-offer">이직</Link>
-          <Link href="/calculators/car-cost">자동차</Link>
-          <Link href="/calculators/debt-vs-invest">대출</Link>
-          <Link href="/calculators/home-purchase">내 집</Link>
-          <Link href="/calculators/investment-compare">투자 비교</Link>
-          <Link href="/calculators/lump-sum-vs-dca">분할매수</Link>
-          <Link href="/calculators/rebalancing">리밸런싱</Link>
-          <Link href="/tools/decision-journal">주식 기록장</Link>
-          <Link href="/invest/quant-backtest">백테스트</Link>
-          <Link href="/tools/growth-board">실행보드</Link>
-          <Link href="/guides">가이드</Link>
-          <Link href="/about">소개</Link>
+        <nav aria-label="주요 메뉴" className="main-nav desktop-nav">
+          {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
         </nav>
+        <details className="mobile-nav">
+          <summary><Menu size={19} aria-hidden="true" /> 메뉴</summary>
+          <nav aria-label="모바일 주요 메뉴">
+            {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+          </nav>
+        </details>
       </div>
     </header>
   );
@@ -60,7 +70,7 @@ export function AdPlaceholder({ label = "광고 준비 영역" }: { label?: stri
 
 export function LegalDisclaimer() {
   return (
-    <aside className="disclaimer-box">
+    <aside className="disclaimer-box" aria-label="계산 결과 이용 안내">
       <strong>계산 결과를 보기 전에</strong>
       <p>본 계산 결과는 사용자가 입력한 가정에 따른 단순 시뮬레이션입니다. 미래 수익률, 세금, 물가, 수수료, 시장 변동, 실제 소득을 보장하지 않습니다. 본 사이트는 투자, 세무, 법률 또는 이직 결정을 대신하지 않습니다.</p>
     </aside>
@@ -77,9 +87,9 @@ export function PageIntro({
   description: string;
 }) {
   return (
-    <section className="page-intro shell">
+    <section className="page-intro shell" aria-labelledby="page-title">
       <p className="eyebrow">{eyebrow}</p>
-      <h1>{title}</h1>
+      <h1 id="page-title">{title}</h1>
       <p>{description}</p>
     </section>
   );

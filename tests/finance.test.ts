@@ -15,7 +15,9 @@ import {
   validateNumericInputs,
 } from "../app/lib/finance";
 import {
+  acquisitionTaxRate,
   calculateHomePurchase,
+  effectiveStressRate,
   estimateClosingCosts,
   maximumBrokerFee,
   standardAcquisitionTaxRate,
@@ -76,6 +78,11 @@ describe("이직 오퍼 계산", () => {
     currentCommute: 0,
     currentHousing: 0,
     currentOther: 0,
+    currentCashAllowance: 0,
+    currentWelfarePoints: 0,
+    currentMealBenefit: 0,
+    currentTransportBenefit: 0,
+    currentHousingBenefit: 0,
     offerBase: 60_000_000,
     offerBonus: 10_000_000,
     offerBonusProbability: 100,
@@ -83,6 +90,13 @@ describe("이직 오퍼 계산", () => {
     offerCommute: 0,
     offerHousing: 0,
     offerOther: 0,
+    offerCashAllowance: 0,
+    offerWelfarePoints: 0,
+    offerMealBenefit: 0,
+    offerTransportBenefit: 0,
+    offerHousingBenefit: 0,
+    offerEquityAnnual: 0,
+    offerEquityProbability: 0,
     afterTaxRate: 100,
     investRate: 100,
     annualRate: 6,
@@ -102,7 +116,7 @@ describe("이직 오퍼 계산", () => {
     expect(result.offerExpected).toBeGreaterThan(result.currentExpected);
     expect(result.monthlyDisposableIncrease).toBeLessThan(0);
     expect(result.monthlyAdditionalInvestment).toBe(0);
-    expect(result.verdict).toBe("보류");
+    expect(result.verdict).toBe("월 현금흐름 감소");
   });
 
   it("3년 납입 후 12년 복리 시나리오가 공식과 일치한다", () => {
@@ -110,6 +124,18 @@ describe("이직 오퍼 계산", () => {
     const rate = monthlyRate(base.annualRate);
     const expected = recurringFutureValue(result.monthlyAdditionalInvestment, base.annualRate, 36) * Math.pow(1 + rate, 144);
     expect(result.conservative15Year).toBeCloseTo(expected, 5);
+  });
+
+  it("주식보상은 총가치에는 포함하지만 가처분 현금에는 포함하지 않는다", () => {
+    const withoutEquity = calculateJobOffer({ ...base, offerEquityAnnual: 0, offerEquityProbability: 100 });
+    const withEquity = calculateJobOffer({ ...base, offerEquityAnnual: 100_000_000, offerEquityProbability: 100 });
+    expect(withEquity.offerExpected - withoutEquity.offerExpected).toBe(100_000_000);
+    expect(withEquity.monthlyDisposableIncrease).toBe(withoutEquity.monthlyDisposableIncrease);
+  });
+
+  it("커리어 자기평가 평균에 안정성을 포함한다", () => {
+    const result = calculateJobOffer({ ...base, careerExpansion: 5, rejobPotential: 4, stability: 1 });
+    expect(result.qualitativeAverage).toBeCloseTo(10 / 3, 8);
   });
 });
 
@@ -153,6 +179,22 @@ describe("목표자산 전략 계산", () => {
     expect(result.requiredMonthlyInvestment).toBe(1_000_000);
     expect(result.monthlyGap).toBe(500_000);
   });
+
+  it("서로 다른 자산 수익률을 각각 적용하고 추가 납입률을 일관되게 쓴다", () => {
+    const input = {
+      assets: [
+        { id: "cash", label: "현금", enabled: true, currentValue: 12_000_000, monthlyContribution: 100_000, annualRate: 0 },
+        { id: "stock", label: "주식", enabled: true, currentValue: 12_000_000, monthlyContribution: 300_000, annualRate: 8 },
+      ],
+      targetAssets: 100_000_000,
+      targetYears: 5,
+    };
+    const result = calculateGoalStrategy(input);
+    const expectedProjection = futureValue(12_000_000, 100_000, 0, 60) + futureValue(12_000_000, 300_000, 8, 60);
+    expect(result.projectedAtTarget).toBeCloseTo(expectedProjection, 5);
+    expect(result.contributionRate).toBeCloseTo(6, 8);
+    expect(result.chart.at(-1)?.required).toBeCloseTo(input.targetAssets, 2);
+  });
 });
 
 describe("자동차 자산비용 계산", () => {
@@ -182,6 +224,26 @@ describe("자동차 자산비용 계산", () => {
     expect(result.totalOwnershipCost).toBe(12_000_000);
     expect(result.opportunityCost15).toBe(12_000_000);
   });
+
+  it("기존 차량 처분액은 할부원금을 줄이지만 경제적 구매비용에는 포함한다", () => {
+    const result = calculateCarCost({ carPrice: 30_000_000, downPayment: 10_000_000, tradeIn: 5_000_000, loanRate: 0, loanYears: 5, insuranceAnnual: 0, taxAnnual: 0, fuelMonthly: 0, parkingMonthly: 0, maintenanceAnnual: 0, resaleValue: 0, holdingYears: 5, annualRate: 0, currentAssets: 50_000_000, monthlyInvestment: 0, targetAssets: 100_000_000 });
+    expect(result.financedPrincipal).toBe(15_000_000);
+    expect(result.tradeInApplied).toBe(5_000_000);
+    expect(result.totalOwnershipCost).toBe(30_000_000);
+  });
+
+  it("보유기간이 할부기간보다 짧으면 그 기간 이자와 남은 대출잔액을 표시한다", () => {
+    const result = calculateCarCost({ carPrice: 30_000_000, downPayment: 0, tradeIn: 0, loanRate: 6, loanYears: 5, insuranceAnnual: 0, taxAnnual: 0, fuelMonthly: 0, parkingMonthly: 0, maintenanceAnnual: 0, resaleValue: 15_000_000, holdingYears: 2, annualRate: 0, currentAssets: 50_000_000, monthlyInvestment: 1_000_000, targetAssets: 100_000_000 });
+    expect(result.loanPaymentsDuringHolding).toBeCloseTo(result.loanPayment * 24, 5);
+    expect(result.residualLoanBalance).toBeGreaterThan(0);
+    expect(result.loanInterest).toBeLessThan(result.loanPayment * 60 - result.financedPrincipal);
+  });
+
+  it("차량 월비용이 투자 가능액보다 크면 음수 현금흐름으로 목표 달성이 늦어진다", () => {
+    const result = calculateCarCost({ carPrice: 12_000_000, downPayment: 12_000_000, tradeIn: 0, loanRate: 0, loanYears: 1, insuranceAnnual: 0, taxAnnual: 0, fuelMonthly: 800_000, parkingMonthly: 0, maintenanceAnnual: 0, resaleValue: 0, holdingYears: 2, annualRate: 0, currentAssets: 1_000_000, monthlyInvestment: 100_000, targetAssets: 5_000_000 });
+    expect(result.baselineMonths).toBe(40);
+    expect(result.carMonths === null || result.carMonths > result.baselineMonths!).toBe(true);
+  });
 });
 
 describe("대출 상환과 투자 비교", () => {
@@ -194,11 +256,81 @@ describe("대출 상환과 투자 비교", () => {
       prepaymentFeeRate: 0,
       monthlyExtra: 0,
       expectedReturn: 0,
+      pessimisticReturn: 0,
+      optimisticReturn: 0,
+      monthlyIncome: 10_000_000,
+      fixedExpenses: 0,
+      currentCash: 20_000_000,
+      emergencyMonths: 0,
+      taxRate: 0,
+      maxLossRate: 0,
       horizonYears: 15,
     });
-    expect(result.verdict).toBe("상환 우세");
+    expect(result.verdict).toBe("상환 시나리오 순자산 높음");
     expect(result.repayNetWorth).toBeGreaterThan(result.investNetWorth);
     expect(result.interestSaved).toBeGreaterThan(0);
+  });
+
+  it("비상자금 목표를 침해하는 중도상환액을 사용 가능 현금으로 제한한다", () => {
+    const result = calculateDebtVsInvest({ loanBalance: 100_000_000, loanRate: 5, remainingYears: 20, prepaymentAmount: 50_000_000, prepaymentFeeRate: 1, monthlyExtra: 0, expectedReturn: 5, pessimisticReturn: 0, optimisticReturn: 10, monthlyIncome: 5_000_000, fixedExpenses: 3_000_000, currentCash: 40_000_000, emergencyMonths: 12, taxRate: 15.4, maxLossRate: 30, horizonYears: 15 });
+    expect(result.prepaymentLimited).toBe(true);
+    expect(result.cashAfterRepay).toBeCloseTo(result.requiredReserve, 5);
+  });
+
+  it("월 추가 여유자금은 소득에서 고정지출과 정기상환액을 뺀 범위로 제한한다", () => {
+    const result = calculateDebtVsInvest({ loanBalance: 100_000_000, loanRate: 5, remainingYears: 20, prepaymentAmount: 0, prepaymentFeeRate: 0, monthlyExtra: 3_000_000, expectedReturn: 5, pessimisticReturn: 0, optimisticReturn: 10, monthlyIncome: 3_000_000, fixedExpenses: 2_000_000, currentCash: 20_000_000, emergencyMonths: 6, taxRate: 15.4, maxLossRate: 30, horizonYears: 5 });
+    expect(result.actualMonthlyExtra).toBeLessThanOrEqual(1_000_000);
+    expect(result.monthlyExtraLimited).toBe(true);
+  });
+
+  it("손실 수익률에는 세금 환급을 가정하지 않고 손익분기도 같은 세후 규칙을 쓴다", () => {
+    const result = calculateDebtVsInvest({ loanBalance: 100_000_000, loanRate: 5, remainingYears: 20, prepaymentAmount: 20_000_000, prepaymentFeeRate: 0, monthlyExtra: 0, expectedReturn: -10, pessimisticReturn: -20, optimisticReturn: 10, monthlyIncome: 10_000_000, fixedExpenses: 1_000_000, currentCash: 100_000_000, emergencyMonths: 6, taxRate: 50, maxLossRate: 30, horizonYears: 10 });
+    expect(result.afterTaxExpectedReturn).toBe(-10);
+    expect(result.breakEvenReturn).not.toBeNull();
+    expect(result.breakEvenReturn!).toBeGreaterThan(result.nominalLoanRate);
+  });
+
+  it("투자 시나리오의 마지막 상환월에 남는 정기상환 예산도 투자한다", () => {
+    const loanBalance = 1_000;
+    const remainingYears = 1.1;
+    const horizonYears = 2;
+    const result = calculateDebtVsInvest({ loanBalance, loanRate: 0, remainingYears, prepaymentAmount: 0, prepaymentFeeRate: 0, monthlyExtra: 0, expectedReturn: 0, pessimisticReturn: 0, optimisticReturn: 0, monthlyIncome: 0, fixedExpenses: 0, currentCash: 0, emergencyMonths: 0, taxRate: 0, maxLossRate: 0, horizonYears });
+    const scheduled = monthlyLoanPayment(loanBalance, 0, remainingYears * 12);
+    expect(result.investNetWorth).toBeCloseTo(scheduled * horizonYears * 12 - loanBalance, 8);
+  });
+
+  it("두 시나리오의 절대 순자산과 차트에 사용 후 남은 현금을 공통으로 포함한다", () => {
+    const base = {
+      loanBalance: 100_000_000,
+      loanRate: 5,
+      remainingYears: 20,
+      prepaymentAmount: 20_000_000,
+      prepaymentFeeRate: 1,
+      monthlyExtra: 300_000,
+      expectedReturn: 6,
+      pessimisticReturn: 0,
+      optimisticReturn: 10,
+      monthlyIncome: 6_000_000,
+      fixedExpenses: 2_000_000,
+      emergencyMonths: 0,
+      taxRate: 15.4,
+      maxLossRate: 30,
+      horizonYears: 5,
+    };
+    const usedCash = base.prepaymentAmount * (1 + base.prepaymentFeeRate / 100);
+    const sharedCash = 59_800_000;
+    const withoutSharedCash = calculateDebtVsInvest({ ...base, currentCash: usedCash });
+    const withSharedCash = calculateDebtVsInvest({ ...base, currentCash: usedCash + sharedCash });
+
+    expect(withSharedCash.actualPrepayment).toBe(withoutSharedCash.actualPrepayment);
+    expect(withSharedCash.repayNetWorth - withoutSharedCash.repayNetWorth).toBeCloseTo(sharedCash, 6);
+    expect(withSharedCash.investNetWorth - withoutSharedCash.investNetWorth).toBeCloseTo(sharedCash, 6);
+    expect(withSharedCash.difference).toBeCloseTo(withoutSharedCash.difference, 6);
+    expect(withSharedCash.chart).toHaveLength(withoutSharedCash.chart.length);
+    withSharedCash.chart.forEach((point, index) => {
+      expect(point.repay - withoutSharedCash.chart[index].repay).toBeCloseTo(sharedCash, 6);
+      expect(point.invest - withoutSharedCash.chart[index].invest).toBeCloseTo(sharedCash, 6);
+    });
   });
 });
 
@@ -218,14 +350,21 @@ describe("내 집 마련 필요현금 계산", () => {
   const base: HomePurchaseInputs = {
     purchasePrice: 900_000_000,
     appraisalValue: 880_000_000,
+    marketPrice: 900_000_000,
     areaM2: 84,
     houseType: "apartment",
     region: "capital-non-regulated",
+    isRuralTown: false,
     currentHouseCount: 0,
     disposeExisting: false,
     firstHome: true,
+    willOccupyHome: true,
+    firstHomeTaxReliefCategory: "standard",
     policyLoan: "none",
     householdProfile: "general",
+    applicantAge: 35,
+    singleHousehold: false,
+    bogeumjariActualUser: false,
     annualIncome: 100_000_000,
     netAssets: 300_000_000,
     existingAnnualDebtService: 0,
@@ -237,6 +376,7 @@ describe("내 집 마련 필요현금 계산", () => {
     companyLoanYears: 10,
     companyLoanInDsr: true,
     mortgageRate: 4,
+    mortgageRateType: "variable",
     mortgageYears: 30,
     dsrLimit: 40,
     stressRate: 3,
@@ -263,10 +403,69 @@ describe("내 집 마련 필요현금 계산", () => {
     expect(maximumBrokerFee(900_000_000)).toBe(4_500_000);
   });
 
-  it("생애최초·12억원 이하 주택의 취득세 감면 추정은 최대 200만원이다", () => {
+  it("일반 생애최초 취득세는 최대 200만원이고 지방교육세도 같은 비율로 감면한다", () => {
     const result = calculateHomePurchase(base);
     expect(result.tax.firstHomeReduction).toBe(2_000_000);
     expect(result.tax.acquisitionTax).toBe(25_000_000);
+    expect(result.tax.grossLocalEducationTax).toBe(2_700_000);
+    expect(result.tax.localEducationTaxReduction).toBe(200_000);
+    expect(result.tax.localEducationTax).toBe(2_500_000);
+  });
+
+  it("법정 소형 비아파트 생애최초 특례는 최대 300만원을 적용한다", () => {
+    const result = calculateHomePurchase({
+      ...base,
+      purchasePrice: 500_000_000,
+      appraisalValue: 500_000_000,
+      marketPrice: 500_000_000,
+      areaM2: 59,
+      houseType: "other",
+      firstHomeTaxReliefCategory: "small-non-apartment",
+    });
+    expect(result.tax.firstHomeReliefCap).toBe(3_000_000);
+    expect(result.tax.firstHomeReduction).toBe(3_000_000);
+    expect(result.tax.localEducationTaxReduction).toBe(300_000);
+  });
+
+  it("생애최초 감면과 별도 감면 입력을 중복 합산하지 않는다", () => {
+    const automaticWins = calculateHomePurchase({ ...base, acquisitionTaxReduction: 1_000_000 });
+    expect(automaticWins.tax.firstHomeReduction).toBe(2_000_000);
+    expect(automaticWins.tax.manualReduction).toBe(0);
+    expect(automaticWins.tax.acquisitionTax).toBe(25_000_000);
+
+    const manualWins = calculateHomePurchase({ ...base, acquisitionTaxReduction: 3_000_000 });
+    expect(manualWins.tax.firstHomeReduction).toBe(0);
+    expect(manualWins.tax.manualReduction).toBe(3_000_000);
+    expect(manualWins.tax.acquisitionTax).toBe(24_000_000);
+  });
+
+  it("미성년자이거나 본인 거주 목적이 아니면 생애최초 취득세 감면을 적용하지 않는다", () => {
+    expect(calculateHomePurchase({ ...base, applicantAge: 18 }).tax.firstHomeReduction).toBe(0);
+    expect(calculateHomePurchase({ ...base, willOccupyHome: false }).tax.firstHomeReduction).toBe(0);
+  });
+
+  it("기존 1주택을 기한 내 처분하는 일시적 2주택은 자동 계산에서 일반세율을 쓴다", () => {
+    expect(acquisitionTaxRate({
+      purchasePrice: 900_000_000,
+      region: "seoul",
+      currentHouseCount: 1,
+      disposeExisting: true,
+      taxMode: "auto",
+    })).toBe(3);
+    expect(acquisitionTaxRate({
+      purchasePrice: 900_000_000,
+      region: "seoul",
+      currentHouseCount: 1,
+      disposeExisting: false,
+      taxMode: "auto",
+    })).toBe(8);
+  });
+
+  it("농어촌특별세는 중과 여부와 관계없이 전용 85㎡ 초과 주택에만 추정한다", () => {
+    expect(calculateHomePurchase({ ...base, firstHome: false, areaM2: 84, taxMode: "eight" }).tax.ruralSpecialTax).toBe(0);
+    expect(calculateHomePurchase({ ...base, firstHome: false, areaM2: 84, taxMode: "twelve" }).tax.ruralSpecialTax).toBe(0);
+    expect(calculateHomePurchase({ ...base, firstHome: false, areaM2: 86, taxMode: "eight" }).tax.ruralSpecialTax).toBeCloseTo(base.purchasePrice * 0.006, 2);
+    expect(calculateHomePurchase({ ...base, firstHome: false, areaM2: 86, taxMode: "twelve" }).tax.ruralSpecialTax).toBeCloseTo(base.purchasePrice * 0.01, 2);
   });
 
   it("부대비용 자동 추정은 계획값을 만들고 실제 견적 모드에서는 입력값을 쓴다", () => {
@@ -287,6 +486,19 @@ describe("내 집 마련 필요현금 계산", () => {
     const result = calculateHomePurchase({ ...base, region: "local-non-regulated", stressRate: 1.5 });
     const ltv = result.limits.find((limit) => limit.key === "ltv");
     expect(ltv?.value).toBe(704_000_000);
+  });
+
+  it("스트레스 DSR은 지역 단계와 대출 금리유형별 비율을 함께 반영한다", () => {
+    expect(effectiveStressRate({ region: "capital-non-regulated", mortgageRateType: "variable", stressRate: 3 })).toBe(3);
+    expect(effectiveStressRate({ region: "capital-non-regulated", mortgageRateType: "mixed", stressRate: 3 })).toBeCloseTo(2.4);
+    expect(effectiveStressRate({ region: "capital-non-regulated", mortgageRateType: "periodic", stressRate: 3 })).toBeCloseTo(1.2);
+    expect(effectiveStressRate({ region: "capital-non-regulated", mortgageRateType: "fixed", stressRate: 3 })).toBe(0);
+    expect(effectiveStressRate({ region: "local-non-regulated", mortgageRateType: "variable", stressRate: 1.5 })).toBeCloseTo(0.75);
+    expect(effectiveStressRate({ region: "local-non-regulated", mortgageRateType: "mixed", stressRate: 1.5 })).toBeCloseTo(0.45);
+
+    const variable = calculateHomePurchase(base).limits.find((limit) => limit.key === "dsr")?.value ?? 0;
+    const fixed = calculateHomePurchase({ ...base, mortgageRateType: "fixed" }).limits.find((limit) => limit.key === "dsr")?.value ?? 0;
+    expect(fixed).toBeGreaterThan(variable);
   });
 
   it("수도권에서 기존 주택을 처분하지 않으면 추가 구입 LTV는 0%다", () => {
@@ -320,6 +532,142 @@ describe("내 집 마련 필요현금 계산", () => {
     expect(result.policy.status).toBe("check");
     expect(result.policy.productCap).toBe(320_000_000);
     expect(result.finalMortgage).toBeLessThanOrEqual(320_000_000);
+  });
+
+  it("디딤돌은 입력과 상환 예시 모두 10·15·20·30년만 허용한다", () => {
+    const result = calculateHomePurchase({
+      ...base,
+      policyLoan: "didimdol",
+      purchasePrice: 400_000_000,
+      appraisalValue: 400_000_000,
+      marketPrice: 400_000_000,
+      annualIncome: 60_000_000,
+      mortgageYears: 50,
+    });
+    expect(result.effectiveYears).toBe(30);
+    expect(result.termLimitWarning).toBe(true);
+    expect(result.repaymentScenarios.map((scenario) => scenario.years)).toEqual([10, 15, 20, 30]);
+  });
+
+  it("만 30세 이상 미혼 단독세대주 디딤돌의 별도 가격·면적·한도를 적용한다", () => {
+    const eligible = calculateHomePurchase({
+      ...base,
+      policyLoan: "didimdol",
+      purchasePrice: 300_000_000,
+      appraisalValue: 300_000_000,
+      marketPrice: 300_000_000,
+      areaM2: 60,
+      annualIncome: 60_000_000,
+      applicantAge: 30,
+      singleHousehold: true,
+    });
+    expect(eligible.policy.status).toBe("check");
+    expect(eligible.policy.productCap).toBe(200_000_000);
+
+    const tooYoung = calculateHomePurchase({
+      ...base,
+      policyLoan: "didimdol",
+      purchasePrice: 250_000_000,
+      appraisalValue: 250_000_000,
+      marketPrice: 250_000_000,
+      areaM2: 50,
+      annualIncome: 50_000_000,
+      applicantAge: 29,
+      singleHousehold: true,
+    });
+    expect(tooYoung.policy.status).toBe("ineligible");
+  });
+
+  it("수도권 밖 읍·면 디딤돌은 일반가구 100㎡·단독세대주 70㎡까지 진단한다", () => {
+    const ruralGeneral = calculateHomePurchase({
+      ...base,
+      policyLoan: "didimdol",
+      region: "local-non-regulated",
+      isRuralTown: true,
+      purchasePrice: 400_000_000,
+      appraisalValue: 400_000_000,
+      marketPrice: 400_000_000,
+      areaM2: 99,
+      annualIncome: 60_000_000,
+      stressRate: 1.5,
+    });
+    expect(ruralGeneral.policy.status).toBe("check");
+
+    const ruralSingle = calculateHomePurchase({
+      ...base,
+      policyLoan: "didimdol",
+      region: "local-non-regulated",
+      isRuralTown: true,
+      purchasePrice: 300_000_000,
+      appraisalValue: 300_000_000,
+      marketPrice: 300_000_000,
+      areaM2: 70,
+      annualIncome: 60_000_000,
+      applicantAge: 30,
+      singleHousehold: true,
+      stressRate: 1.5,
+    });
+    expect(ruralSingle.policy.status).toBe("check");
+  });
+
+  it("보금자리론은 매매가·평가액·시세 중 하나라도 6억원을 넘으면 제외한다", () => {
+    const result = calculateHomePurchase({
+      ...base,
+      policyLoan: "bogeumjari",
+      purchasePrice: 590_000_000,
+      appraisalValue: 610_000_000,
+      marketPrice: 580_000_000,
+      annualIncome: 70_000_000,
+    });
+    expect(result.policy.status).toBe("ineligible");
+    expect(result.finalMortgage).toBe(0);
+  });
+
+  it("규제지역 보금자리론은 생애최초·확인된 실수요자 외에는 LTV·DTI를 10%p 낮춘다", () => {
+    const conservative = calculateHomePurchase({
+      ...base,
+      policyLoan: "bogeumjari",
+      region: "seoul",
+      purchasePrice: 500_000_000,
+      appraisalValue: 500_000_000,
+      marketPrice: 500_000_000,
+      annualIncome: 60_000_000,
+      firstHome: false,
+      bogeumjariActualUser: false,
+    });
+    expect(conservative.policy.ltvRate).toBe(60);
+    expect(conservative.policy.dtiRate).toBe(50);
+
+    const actualUser = calculateHomePurchase({
+      ...base,
+      policyLoan: "bogeumjari",
+      region: "seoul",
+      purchasePrice: 500_000_000,
+      appraisalValue: 500_000_000,
+      marketPrice: 500_000_000,
+      annualIncome: 60_000_000,
+      firstHome: false,
+      bogeumjariActualUser: true,
+    });
+    expect(actualUser.policy.ltvRate).toBe(70);
+    expect(actualUser.policy.dtiRate).toBe(60);
+  });
+
+  it("보금자리론 40·50년 만기는 일반·신혼가구의 연령 상한을 각각 적용한다", () => {
+    const common = {
+      ...base,
+      policyLoan: "bogeumjari" as const,
+      purchasePrice: 500_000_000,
+      appraisalValue: 500_000_000,
+      marketPrice: 500_000_000,
+      annualIncome: 60_000_000,
+    };
+    expect(calculateHomePurchase({ ...common, householdProfile: "general", applicantAge: 39, mortgageYears: 40 }).policy.status).toBe("check");
+    expect(calculateHomePurchase({ ...common, householdProfile: "general", applicantAge: 40, mortgageYears: 40 }).policy.status).toBe("ineligible");
+    expect(calculateHomePurchase({ ...common, householdProfile: "newlywed", applicantAge: 49, mortgageYears: 40 }).policy.status).toBe("check");
+    expect(calculateHomePurchase({ ...common, householdProfile: "newlywed", applicantAge: 50, mortgageYears: 40 }).policy.status).toBe("ineligible");
+    expect(calculateHomePurchase({ ...common, householdProfile: "newlywed", applicantAge: 39, mortgageYears: 50 }).policy.status).toBe("check");
+    expect(calculateHomePurchase({ ...common, householdProfile: "newlywed", applicantAge: 40, mortgageYears: 50 }).policy.status).toBe("ineligible");
   });
 
   it("회사대출을 사용하면 필요 자기자금은 같은 금액만큼 줄어든다", () => {

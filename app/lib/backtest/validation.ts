@@ -1,7 +1,12 @@
 import type { BenchmarkRow, FundamentalRow, PriceRow, QualityIssue, QualityReport } from "./types";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-export const isValidDate = (value: string) => datePattern.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+export const isValidDate = (value: string) => {
+  if (!datePattern.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+};
 
 function issue(severity: QualityIssue["severity"], code: string, message: string, count: number): QualityIssue {
   return { severity, code, message, count };
@@ -32,8 +37,17 @@ export function validateDatasets({
   if (benchmark.length && missingBenchmarkColumns.length) issues.push(issue("error", "missing-benchmark-columns", `벤치마크 필수 열 누락: ${missingBenchmarkColumns.join(", ")}`, missingBenchmarkColumns.length));
   if (parseErrors.length) issues.push(issue("error", "parse-error", `CSV 해석 오류: ${parseErrors.slice(0, 2).join(" / ")}`, parseErrors.length));
   const totalRows = fundamentals.length + prices.length + benchmark.length;
-  if (totalRows > 300_000) issues.push(issue("error", "too-large", "전체 행이 300,000행을 초과했습니다.", totalRows));
-  else if (totalRows > 200_000) issues.push(issue("warning", "large-data", "200,000행 이상은 브라우저 메모리 사용량이 커질 수 있습니다.", totalRows));
+  if (totalRows > 300_000) {
+    issues.push(issue("error", "too-large", "전체 행이 300,000행을 초과했습니다.", totalRows));
+    return {
+      score: 0,
+      grade: "백테스트 불가",
+      blocked: true,
+      issues,
+      rows: { fundamentals: fundamentals.length, prices: prices.length, benchmark: benchmark.length },
+    };
+  }
+  if (totalRows > 200_000) issues.push(issue("warning", "large-data", "200,000행 이상은 브라우저 메모리 사용량이 커질 수 있습니다.", totalRows));
 
   const invalidFundDates = fundamentals.filter(row => !isValidDate(row.availableDate) || !isValidDate(row.fiscalPeriodEnd)).length;
   const invalidPriceDates = prices.filter(row => !isValidDate(row.date)).length;
@@ -49,10 +63,12 @@ export function validateDatasets({
   const priceKeys = new Set<string>();
   let duplicatePrices = 0;
   for (const row of prices) { const key = `${row.ticker}|${row.date}`; if (priceKeys.has(key)) duplicatePrices += 1; priceKeys.add(key); }
-  if (duplicatePrices) issues.push(issue("warning", "duplicate-prices", "동일 종목·날짜의 중복 가격행이 있습니다.", duplicatePrices));
+  if (duplicatePrices) issues.push(issue("error", "duplicate-prices", "동일 종목·날짜의 중복 가격행이 있습니다. 어느 가격을 쓸지 임의로 결정하지 않도록 중복을 제거해 주세요.", duplicatePrices));
 
   const invalidPrices = prices.filter(row => !Number.isFinite(row.adjustedClose) || row.adjustedClose <= 0).length;
   if (invalidPrices) issues.push(issue("error", "invalid-adjusted-close", "수정종가가 없거나 0 이하인 행이 있습니다.", invalidPrices));
+  const missingTickers = fundamentals.filter(row => !row.ticker).length + prices.filter(row => !row.ticker).length;
+  if (missingTickers) issues.push(issue("error", "missing-ticker", "티커가 비어 있는 행이 있습니다.", missingTickers));
   const missingSector = fundamentals.filter(row => !row.sector).length;
   if (missingSector) issues.push(issue("warning", "missing-sector", "업종값이 없어 업종 한도를 적용할 수 없는 행이 있습니다.", missingSector));
   const missingSectorPer = fundamentals.filter(row => row.sectorPer === null).length;
@@ -72,6 +88,22 @@ export function validateDatasets({
   if (currencies.size > 1) issues.push(issue("warning", "mixed-currency", "여러 통화가 섞여 있습니다. 환율을 반영하지 않으면 시가총액 비교가 왜곡될 수 있습니다.", currencies.size));
   if (!benchmark.length) issues.push(issue("info", "no-benchmark", "벤치마크가 없어 절대수익률만 계산합니다.", 1));
 
+  const priceDatesByTicker = new Map<string, string[]>();
+  for (const row of prices) {
+    const dates = priceDatesByTicker.get(row.ticker);
+    if (dates) dates.push(row.date);
+    else priceDatesByTicker.set(row.ticker, [row.date]);
+  }
+  let staleGaps = 0;
+  for (const dates of priceDatesByTicker.values()) {
+    dates.sort();
+    for (let index = 1; index < dates.length; index += 1) {
+      const gap = (Date.parse(dates[index]) - Date.parse(dates[index - 1])) / 86_400_000;
+      if (gap > 31) staleGaps += 1;
+    }
+  }
+  if (staleGaps) issues.push(issue("warning", "stale-price-gap", "같은 종목의 가격 관측 사이에 31일을 넘는 공백이 있습니다. 공백 중에는 마지막 가격 평가가 포함될 수 있습니다.", staleGaps));
+
   const errorCount = issues.filter(item => item.severity === "error").reduce((sum, item) => sum + item.count, 0);
   const warningCount = issues.filter(item => item.severity === "warning").reduce((sum, item) => sum + Math.min(item.count, 10), 0);
   const score = Math.max(0, Math.round(100 - Math.min(errorCount * 18, 70) - Math.min(warningCount * 3, 30)));
@@ -79,4 +111,3 @@ export function validateDatasets({
   const grade: QualityReport["grade"] = blocked ? "백테스트 불가" : score >= 85 ? "양호" : score >= 65 ? "제한적 사용 가능" : "주의 필요";
   return { score, grade, blocked, issues, rows: { fundamentals: fundamentals.length, prices: prices.length, benchmark: benchmark.length } };
 }
-

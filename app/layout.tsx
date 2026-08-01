@@ -3,7 +3,7 @@ import "./globals.css";
 import { analyticsConfig } from "./config";
 import { AnalyticsScripts } from "./components/AnalyticsScripts";
 import { SiteFooter, SiteHeader } from "./components/SiteChrome";
-import { defaultDescription, siteName, siteUrl } from "./seo";
+import { defaultDescription, pageUrl, siteName, siteUrl } from "./seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -31,20 +31,23 @@ const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: siteName,
-  description: "회사원의 월세 절약, 이직, 연봉 상승 선택을 장기 자산으로 계산하는 시뮬레이션 도구",
-  url: siteUrl,
+  description: defaultDescription,
+  url: pageUrl("/"),
   inLanguage: "ko-KR",
 };
+
+const serializedWebsiteSchema = JSON.stringify(websiteSchema).replace(/</g, "\\u003c");
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
       <body>
+        <a href="#main-content" className="skip-link">본문으로 건너뛰기</a>
         <SiteHeader />
-        {children}
+        <div id="main-content" tabIndex={-1}>{children}</div>
         <SiteFooter />
         <AnalyticsScripts />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedWebsiteSchema }} />
       </body>
     </html>
   );

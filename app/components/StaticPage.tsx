@@ -14,7 +14,7 @@ export function StaticPage({
   return (
     <main>
       <PageIntro eyebrow={eyebrow} title={title} description={description} />
-      <article className="shell prose-page">{children}</article>
+      <article className="shell prose-page" aria-labelledby="page-title">{children}</article>
     </main>
   );
 }

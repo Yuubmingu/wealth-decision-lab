@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
 import { guides } from "./guides/data";
-import { siteUrl } from "./seo";
+import { pageUrl } from "./seo";
 
 export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const siteReviewedAt = "2026-08-01";
   const routes = [
     "",
     "/calculators/goal-assets",
@@ -28,7 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 
   return [
-    ...routes.map((route) => ({ url: `${siteUrl}${route}` })),
-    ...guides.map((guide) => ({ url: `${siteUrl}/guides/${guide.slug}` })),
+    ...routes.map((route) => ({ url: pageUrl(route), lastModified: siteReviewedAt })),
+    ...guides.map((guide) => ({ url: pageUrl(`/guides/${guide.slug}`), lastModified: guide.reviewedAt })),
   ];
 }

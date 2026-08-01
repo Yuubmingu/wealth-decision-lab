@@ -176,24 +176,31 @@ export type JobOfferInputs = {
 };
 
 export function calculateJobOffer(input: JobOfferInputs) {
-  const currentBenefits = (input.currentCashAllowance ?? 0) + (input.currentWelfarePoints ?? 0) + (input.currentMealBenefit ?? 0) + (input.currentTransportBenefit ?? 0) + (input.currentHousingBenefit ?? 0);
-  const offerBenefits = (input.offerCashAllowance ?? 0) + (input.offerWelfarePoints ?? 0) + (input.offerMealBenefit ?? 0) + (input.offerTransportBenefit ?? 0) + (input.offerHousingBenefit ?? 0);
+  const currentCashCompensation = input.currentBase +
+    input.currentBonus * (input.currentBonusProbability / 100) +
+    (input.currentCashAllowance ?? 0);
+  const offerCashCompensation = input.offerBase +
+    input.offerBonus * (input.offerBonusProbability / 100) +
+    (input.offerCashAllowance ?? 0);
+  const currentBenefits = (input.currentWelfarePoints ?? 0) + (input.currentMealBenefit ?? 0) + (input.currentTransportBenefit ?? 0) + (input.currentHousingBenefit ?? 0);
+  const offerBenefits = (input.offerWelfarePoints ?? 0) + (input.offerMealBenefit ?? 0) + (input.offerTransportBenefit ?? 0) + (input.offerHousingBenefit ?? 0);
   const expectedEquity = (input.offerEquityAnnual ?? 0) * ((input.offerEquityProbability ?? 0) / 100);
-  const currentExpected =
-    input.currentBase + input.currentBonus * (input.currentBonusProbability / 100) + currentBenefits;
-  const offerExpected =
-    input.offerBase + input.offerBonus * (input.offerBonusProbability / 100) + offerBenefits + expectedEquity;
+  const currentExpected = currentCashCompensation + currentBenefits;
+  const offerExpected = offerCashCompensation + offerBenefits + expectedEquity;
   const baseDifference = input.offerBase - input.currentBase;
   const baseIncreaseRate = input.currentBase
     ? (baseDifference / input.currentBase) * 100
     : 0;
   const expectedDifference = offerExpected - currentExpected;
-  const afterTaxAnnualDifference = expectedDifference * (input.afterTaxRate / 100);
+  const afterTaxCashDifference = (offerCashCompensation - currentCashCompensation) * (input.afterTaxRate / 100);
+  const spendableBenefitDifference = offerBenefits - currentBenefits;
   const monthlyCostDifference =
     input.offerCommute - input.currentCommute +
     (input.offerHousing - input.currentHousing) +
     (input.offerOther - input.currentOther);
-  const monthlyDisposableIncrease = afterTaxAnnualDifference / 12 - monthlyCostDifference;
+  // Equity is intentionally excluded: a probability-weighted paper value is not
+  // spendable cash. Benefits are already entered as the user's usable value.
+  const monthlyDisposableIncrease = (afterTaxCashDifference + spendableBenefitDifference) / 12 - monthlyCostDifference;
   const monthlyAdditionalInvestment = Math.max(
     monthlyDisposableIncrease * (input.investRate / 100),
     0,
@@ -211,19 +218,13 @@ export function calculateJobOffer(input: JobOfferInputs) {
   const investedSigning =
     input.signingBonus * (input.afterTaxRate / 100) * (input.investRate / 100);
   const signingFutureValue = investedSigning * Math.pow(1 + rate, 180);
-  const qualitativeAverage = (input.careerExpansion + input.rejobPotential) / 2;
-  const rules = [
-    baseIncreaseRate >= 10,
-    monthlyDisposableIncrease > 0,
-    qualitativeAverage >= 4,
-  ];
-  const metCount = rules.filter(Boolean).length;
-  const verdict =
-    monthlyDisposableIncrease < 0 || metCount <= 1
-      ? "보류"
-      : metCount === 3
-        ? "이직 우세"
-        : "조건부 검토";
+  const qualitativeAverage = (input.careerExpansion + input.rejobPotential + input.stability) / 3;
+  const cashFlowTolerance = 1_000;
+  const verdict = monthlyDisposableIncrease > cashFlowTolerance
+    ? "월 현금흐름 증가"
+    : monthlyDisposableIncrease < -cashFlowTolerance
+      ? "월 현금흐름 감소"
+      : "월 현금흐름 유사";
 
   return {
     currentExpected,
@@ -239,8 +240,11 @@ export function calculateJobOffer(input: JobOfferInputs) {
     continuous15Year,
     signingFutureValue,
     qualitativeAverage,
-    rules,
     verdict,
+    currentCashCompensation,
+    offerCashCompensation,
+    afterTaxCashDifference,
+    spendableBenefitDifference,
     currentBenefits,
     offerBenefits,
     expectedEquity,
@@ -334,51 +338,53 @@ export function calculateGoalStrategy(input: GoalStrategyInputs) {
   const weightedRate = currentAssets > 0
     ? enabled.reduce((sum, asset) => sum + asset.currentValue * asset.annualRate, 0) / currentAssets
     : enabled.length ? enabled.reduce((sum, asset) => sum + asset.annualRate, 0) / enabled.length : 0;
-  const valueAt = (months: number) => enabled.reduce((sum, asset) => sum + futureValue(asset.currentValue, asset.monthlyContribution + (asset.monthlyIncome ?? 0), asset.annualRate, months), 0);
+  const contributionRate = monthlyInvestment > 0
+    ? enabled.reduce((sum, asset) => sum + (asset.monthlyContribution + (asset.monthlyIncome ?? 0)) * asset.annualRate, 0) / monthlyInvestment
+    : currentAssets > 0
+      ? weightedRate
+      : enabled.length
+        ? enabled.reduce((sum, asset) => sum + asset.annualRate, 0) / enabled.length
+        : 0;
+  const valueAt = (months: number, rateShift = 0) => enabled.reduce((sum, asset) => sum + futureValue(
+    asset.currentValue,
+    asset.monthlyContribution + (asset.monthlyIncome ?? 0),
+    Math.max(asset.annualRate + rateShift, -99.9),
+    months,
+  ), 0);
   const projectedAtTarget = valueAt(targetMonths);
   let currentMonths: number | null = currentAssets >= input.targetAssets ? 0 : null;
   for (let month = 1; currentMonths === null && month <= DEFAULT_MAX_MONTHS; month += 1) if (valueAt(month) >= input.targetAssets) currentMonths = month;
-  const requiredMonthlyInvestment = requiredMonthlyContribution(
-    currentAssets,
-    input.targetAssets,
-    weightedRate,
+  const additionalMonthlyInvestment = requiredMonthlyContribution(
+    0,
+    Math.max(input.targetAssets - projectedAtTarget, 0),
+    contributionRate,
     targetMonths,
   );
-  const monthlyGap = Math.max(
-    requiredMonthlyInvestment - monthlyInvestment,
-    0,
-  );
+  const requiredMonthlyInvestment = monthlyInvestment + additionalMonthlyInvestment;
+  const monthlyGap = additionalMonthlyInvestment;
   const assetGap = Math.max(input.targetAssets - projectedAtTarget, 0);
   const onTrack = projectedAtTarget >= input.targetAssets;
-  const scenarios = [Math.max(weightedRate - 2, 0), weightedRate, weightedRate + 2].map((rate) => ({
-    rate,
-    value: futureValue(
-      currentAssets,
-      monthlyInvestment,
-      rate,
-      targetMonths,
-    ),
-    months: monthsToTarget(
-      currentAssets,
-      monthlyInvestment,
-      rate,
-      input.targetAssets,
-      DEFAULT_MAX_MONTHS,
-    ),
-  }));
-  const chart = Array.from({ length: input.targetYears + 1 }, (_, year) => ({
+  const scenarios = [-2, 0, 2].map((shift) => {
+    let months: number | null = currentAssets >= input.targetAssets ? 0 : null;
+    for (let month = 1; months === null && month <= DEFAULT_MAX_MONTHS; month += 1) {
+      if (valueAt(month, shift) >= input.targetAssets) months = month;
+    }
+    return {
+      rate: contributionRate + shift,
+      rateShift: shift,
+      value: valueAt(targetMonths, shift),
+      months,
+    };
+  });
+  const chart = Array.from({ length: Math.max(Math.floor(input.targetYears), 0) + 1 }, (_, year) => ({
     year,
-    current: futureValue(
-      0, 0, 0, 0,
-    ),
-    required: futureValue(
-      currentAssets,
-      requiredMonthlyInvestment,
-      weightedRate,
+    current: valueAt(year * 12),
+    required: valueAt(year * 12) + recurringFutureValue(
+      additionalMonthlyInvestment,
+      contributionRate,
       year * 12,
     ),
   }));
-  chart.forEach((point) => { point.current = valueAt(point.year * 12); });
   const assetBreakdown = enabled.map((asset) => ({ label: asset.label, value: futureValue(asset.currentValue, asset.monthlyContribution + (asset.monthlyIncome ?? 0), asset.annualRate, targetMonths) }));
   const largestShare = currentAssets ? Math.max(...enabled.map((asset) => asset.currentValue / currentAssets * 100), 0) : 0;
 
@@ -394,6 +400,8 @@ export function calculateGoalStrategy(input: GoalStrategyInputs) {
     currentAssets,
     monthlyInvestment,
     weightedRate,
+    contributionRate,
+    additionalMonthlyInvestment,
     assetBreakdown,
     largestShare,
   };
@@ -437,27 +445,40 @@ function monthsToTargetWithCar(
   upfrontCash: number,
   loanPayment: number,
   operatingMonthly: number,
+  residualLoanBalance: number,
 ) {
-  let assets = Math.max(input.currentAssets - upfrontCash, 0);
+  let assets = input.currentAssets - upfrontCash;
   const rate = monthlyRate(input.annualRate);
   const holdingMonths = input.holdingYears * 12;
   const loanMonths = input.loanYears * 12;
   if (assets >= input.targetAssets) return 0;
   for (let month = 1; month <= DEFAULT_MAX_MONTHS; month += 1) {
-    assets *= 1 + rate;
+    if (assets > 0) assets *= 1 + rate;
     let availableInvestment = input.monthlyInvestment;
     if (month <= holdingMonths) availableInvestment -= operatingMonthly;
-    if (month <= loanMonths) availableInvestment -= loanPayment;
-    assets += Math.max(availableInvestment, 0);
-    if (month === holdingMonths) assets += input.resaleValue;
+    if (month <= Math.min(loanMonths, holdingMonths)) availableInvestment -= loanPayment;
+    assets += availableInvestment;
+    if (month === holdingMonths) assets += input.resaleValue - residualLoanBalance;
     if (assets >= input.targetAssets) return month;
   }
   return null;
 }
 
+function remainingLoanBalance(principal: number, annualRatePercent: number, totalMonths: number, paidMonths: number) {
+  if (principal <= 0 || totalMonths <= 0 || paidMonths >= totalMonths) return 0;
+  const payment = monthlyLoanPayment(principal, annualRatePercent, totalMonths);
+  if (annualRatePercent === 0) return Math.max(principal - payment * paidMonths, 0);
+  const rate = annualRatePercent / 100 / 12;
+  return Math.max(
+    principal * Math.pow(1 + rate, paidMonths) - payment * ((Math.pow(1 + rate, paidMonths) - 1) / rate),
+    0,
+  );
+}
+
 export function calculateCarCost(input: CarCostInputs) {
-  const upfrontCash = Math.max(input.downPayment - input.tradeIn, 0);
-  const financedPrincipal = Math.max(input.carPrice - input.downPayment, 0);
+  const upfrontCash = Math.min(Math.max(input.downPayment, 0), input.carPrice);
+  const tradeInApplied = Math.min(Math.max(input.tradeIn, 0), Math.max(input.carPrice - upfrontCash, 0));
+  const financedPrincipal = Math.max(input.carPrice - upfrontCash - tradeInApplied, 0);
   const loanMonths = input.loanYears * 12;
   const holdingMonths = input.holdingYears * 12;
   const loanPayment = monthlyLoanPayment(
@@ -465,8 +486,11 @@ export function calculateCarCost(input: CarCostInputs) {
     input.loanRate,
     loanMonths,
   );
-  const loanTotalPaid = loanPayment * loanMonths;
-  const loanInterest = Math.max(loanTotalPaid - financedPrincipal, 0);
+  const paidLoanMonths = Math.min(loanMonths, holdingMonths);
+  const residualLoanBalance = remainingLoanBalance(financedPrincipal, input.loanRate, loanMonths, paidLoanMonths);
+  const loanPaymentsDuringHolding = loanPayment * paidLoanMonths;
+  const principalRepaidDuringHolding = financedPrincipal - residualLoanBalance;
+  const loanInterest = Math.max(loanPaymentsDuringHolding - principalRepaidDuringHolding, 0);
   const operatingMonthly =
     input.fuelMonthly +
     input.parkingMonthly +
@@ -474,27 +498,24 @@ export function calculateCarCost(input: CarCostInputs) {
   const runningCostFirstMonth = loanPayment + operatingMonthly;
   const operatingTotal = operatingMonthly * holdingMonths;
   const totalOwnershipCost = Math.max(
-    upfrontCash + loanTotalPaid + operatingTotal - input.resaleValue,
+    upfrontCash + tradeInApplied + loanPaymentsDuringHolding + residualLoanBalance + operatingTotal - input.resaleValue,
     0,
   );
 
   const investmentRate = monthlyRate(input.annualRate);
   const horizonMonths = holdingMonths;
-  let opportunityCost15 = upfrontCash * Math.pow(1 + investmentRate, horizonMonths);
-  for (let month = 1; month <= Math.min(holdingMonths, horizonMonths); month += 1) {
+  let opportunityCost15 = (upfrontCash + tradeInApplied) * Math.pow(1 + investmentRate, horizonMonths);
+  for (let month = 1; month <= holdingMonths; month += 1) {
     const monthlyCost = operatingMonthly + (month <= loanMonths ? loanPayment : 0);
     opportunityCost15 +=
       monthlyCost * Math.pow(1 + investmentRate, horizonMonths - month);
   }
-  if (holdingMonths <= horizonMonths) {
-    opportunityCost15 -=
-      input.resaleValue *
-      Math.pow(1 + investmentRate, horizonMonths - holdingMonths);
-  }
+  opportunityCost15 += (residualLoanBalance - input.resaleValue) *
+    Math.pow(1 + investmentRate, horizonMonths - holdingMonths);
   opportunityCost15 = Math.max(opportunityCost15, 0);
 
   const baselineMonths = monthsToTarget(
-    input.currentAssets,
+    input.currentAssets + tradeInApplied,
     input.monthlyInvestment,
     input.annualRate,
     input.targetAssets,
@@ -505,13 +526,14 @@ export function calculateCarCost(input: CarCostInputs) {
     upfrontCash,
     loanPayment,
     operatingMonthly,
+    residualLoanBalance,
   );
   const delayedMonths =
     baselineMonths !== null && carMonths !== null
       ? Math.max(carMonths - baselineMonths, 0)
       : null;
   const costBreakdown = [
-    { name: "차량 순구매비", value: Math.max(upfrontCash + financedPrincipal - input.resaleValue, 0) },
+    { name: "차량 순구매비", value: Math.max(input.carPrice - input.resaleValue, 0) },
     { name: "할부이자", value: loanInterest },
     { name: "보험·세금·정비", value: ((input.insuranceAnnual + input.taxAnnual + input.maintenanceAnnual) / 12) * holdingMonths },
     { name: "유류·주차", value: (input.fuelMonthly + input.parkingMonthly) * holdingMonths },
@@ -519,9 +541,12 @@ export function calculateCarCost(input: CarCostInputs) {
 
   return {
     upfrontCash,
+    tradeInApplied,
     financedPrincipal,
     loanPayment,
     loanInterest,
+    residualLoanBalance,
+    loanPaymentsDuringHolding,
     operatingMonthly,
     runningCostFirstMonth,
     operatingTotal,
@@ -569,6 +594,9 @@ function simulateDebtDecision(
   const investmentMonthlyRate = monthlyRate(expectedReturn);
   const prepayment = Math.min(input.prepaymentAmount, input.loanBalance);
   const fee = prepayment * (input.prepaymentFeeRate / 100);
+  const sharedCash = Number.isFinite(input.currentCash)
+    ? Math.max(input.currentCash - prepayment - fee, 0)
+    : 0;
   const scheduledPayment = monthlyLoanPayment(
     input.loanBalance,
     input.loanRate,
@@ -583,7 +611,11 @@ function simulateDebtDecision(
   let repayPayoffMonth: number | null = repayDebt === 0 ? 0 : null;
   let investPayoffMonth: number | null = investDebt === 0 ? 0 : null;
   const chart: DebtSimulationPoint[] = [
-    { year: 0, repay: repayAssets - repayDebt, invest: investAssets - investDebt },
+    {
+      year: 0,
+      repay: sharedCash + repayAssets - repayDebt,
+      invest: sharedCash + investAssets - investDebt,
+    },
   ];
 
   for (let month = 1; month <= horizonMonths; month += 1) {
@@ -596,7 +628,8 @@ function simulateDebtDecision(
       investDebt += interest;
       const payment = Math.min(scheduledPayment, investDebt);
       investDebt -= payment;
-      investAssets += input.monthlyExtra;
+      const unusedBudget = scheduledPayment - payment;
+      investAssets += input.monthlyExtra + Math.max(unusedBudget, 0);
       if (investDebt <= 0.01) {
         investDebt = 0;
         investPayoffMonth = month;
@@ -627,8 +660,8 @@ function simulateDebtDecision(
     if (month % 12 === 0) {
       chart.push({
         year: month / 12,
-        repay: repayAssets - repayDebt,
-        invest: investAssets - investDebt,
+        repay: sharedCash + repayAssets - repayDebt,
+        invest: sharedCash + investAssets - investDebt,
       });
     }
   }
@@ -636,8 +669,8 @@ function simulateDebtDecision(
   return {
     fee,
     scheduledPayment,
-    repayNetWorth: repayAssets - repayDebt,
-    investNetWorth: investAssets - investDebt,
+    repayNetWorth: sharedCash + repayAssets - repayDebt,
+    investNetWorth: sharedCash + investAssets - investDebt,
     repayInterest,
     investInterest,
     interestSaved: Math.max(investInterest - repayInterest, 0),
@@ -648,11 +681,27 @@ function simulateDebtDecision(
 }
 
 export function calculateDebtVsInvest(input: DebtVsInvestInputs) {
-  const taxRate = input.taxRate ?? 0;
-  const result = simulateDebtDecision(input, input.expectedReturn * (1 - taxRate / 100));
+  const taxRate = Math.min(Math.max(input.taxRate ?? 0, 0), 100);
+  const requiredReserve = Math.max(input.fixedExpenses ?? 0, 0) * Math.max(input.emergencyMonths ?? 0, 0);
+  const requestedPrepayment = Math.min(Math.max(input.prepaymentAmount, 0), input.loanBalance);
+  const feeRate = Math.max(input.prepaymentFeeRate, 0) / 100;
+  const hasCashInput = Number.isFinite(input.currentCash);
+  const affordablePrepayment = hasCashInput
+    ? Math.max((input.currentCash - requiredReserve) / (1 + feeRate), 0)
+    : requestedPrepayment;
+  const actualPrepayment = Math.min(requestedPrepayment, affordablePrepayment);
+  const scheduledPayment = monthlyLoanPayment(input.loanBalance, input.loanRate, input.remainingYears * 12);
+  const hasCashFlowInput = Number.isFinite(input.monthlyIncome) && Number.isFinite(input.fixedExpenses);
+  const affordableMonthlyExtra = hasCashFlowInput
+    ? Math.max(input.monthlyIncome - input.fixedExpenses - scheduledPayment, 0)
+    : Math.max(input.monthlyExtra, 0);
+  const actualMonthlyExtra = Math.min(Math.max(input.monthlyExtra, 0), affordableMonthlyExtra);
+  const adjustedInput = { ...input, prepaymentAmount: actualPrepayment, monthlyExtra: actualMonthlyExtra };
+  const afterTaxReturn = (grossRate: number) => grossRate > 0 ? grossRate * (1 - taxRate / 100) : grossRate;
+  const result = simulateDebtDecision(adjustedInput, afterTaxReturn(input.expectedReturn));
   let breakEvenReturn: number | null = null;
-  for (let rate = 0; rate <= 20; rate += 0.1) {
-    const scenario = simulateDebtDecision(input, Number(rate.toFixed(1)));
+  for (let rate = 0; rate <= 100; rate += 0.1) {
+    const scenario = simulateDebtDecision(adjustedInput, afterTaxReturn(Number(rate.toFixed(1))));
     if (scenario.investNetWorth >= scenario.repayNetWorth) {
       breakEvenReturn = Number(rate.toFixed(1));
       break;
@@ -666,25 +715,25 @@ export function calculateDebtVsInvest(input: DebtVsInvestInputs) {
       Math.abs(result.investNetWorth),
       1,
     ) * 0.02
-      ? "비슷함"
+      ? "두 시나리오 순자산 유사"
       : difference > 0
-        ? "투자 우세"
-        : "상환 우세";
+        ? "투자 시나리오 순자산 높음"
+        : "상환 시나리오 순자산 높음";
 
   const scenarios = [
     { label: "부진", rate: input.pessimisticReturn ?? 0 },
     { label: "기준", rate: input.expectedReturn },
     { label: "호조", rate: input.optimisticReturn ?? input.expectedReturn },
   ].map((item) => {
-    const simulated = simulateDebtDecision(input, item.rate * (1 - taxRate / 100));
+    const simulated = simulateDebtDecision(adjustedInput, afterTaxReturn(item.rate));
     return { ...item, repay: simulated.repayNetWorth, invest: simulated.investNetWorth, difference: simulated.investNetWorth - simulated.repayNetWorth };
   });
-  const requiredReserve = (input.fixedExpenses ?? 0) * (input.emergencyMonths ?? 0);
-  const cashAfterRepay = (input.currentCash ?? input.prepaymentAmount) - input.prepaymentAmount - result.fee;
+  const startingCash = hasCashInput ? input.currentCash : actualPrepayment + result.fee;
+  const cashAfterRepay = startingCash - actualPrepayment - result.fee;
   const reserveGap = cashAfterRepay - requiredReserve;
   const cashMonthsAfterRepay = (input.fixedExpenses ?? 0) > 0 ? cashAfterRepay / input.fixedExpenses : 0;
-  const downsideLoss = input.prepaymentAmount * ((input.maxLossRate ?? 0) / 100);
-  const guaranteedReturn = input.loanRate;
+  const downsideLoss = (actualPrepayment + result.fee) * ((input.maxLossRate ?? 0) / 100);
+  const netRepaymentBenefit = result.interestSaved - result.fee;
 
   return {
     ...result,
@@ -697,7 +746,15 @@ export function calculateDebtVsInvest(input: DebtVsInvestInputs) {
     reserveGap,
     cashMonthsAfterRepay,
     downsideLoss,
-    guaranteedReturn,
+    nominalLoanRate: input.loanRate,
+    netRepaymentBenefit,
+    actualPrepayment,
+    prepaymentLimited: actualPrepayment + 0.01 < requestedPrepayment,
+    affordablePrepayment,
+    actualMonthlyExtra,
+    monthlyExtraLimited: actualMonthlyExtra + 0.01 < input.monthlyExtra,
+    affordableMonthlyExtra,
+    afterTaxExpectedReturn: afterTaxReturn(input.expectedReturn),
   };
 }
 

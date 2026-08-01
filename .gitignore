@@ -30,14 +30,27 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+.dev.vars*
 
 # vercel
 .vercel
 
 # typescript
 next-env.d.ts
+tsconfig.tsbuildinfo
 /dist/
 /.wrangler/
 /.sites-runtime/
 /outputs/
 /work/
+
+# local source documents and release artifacts
+/*.pdf
+/*-release.zip
+/exports/
+/private/
+*.local.csv
+*.local.json
+*.key
+*.p12
+*.pfx

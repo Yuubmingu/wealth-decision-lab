@@ -3,7 +3,19 @@ import type { FundamentalRow, JournalRecord, JournalReplayRow, PriceRow, Screeni
 
 const n = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : value === "" || value === null || value === undefined ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 const s = (value: unknown) => String(value ?? "").trim();
-const addMonths = (date: string, months: number) => { const value = new Date(`${date}T00:00:00Z`); value.setUTCMonth(value.getUTCMonth() + months); return value.toISOString().slice(0, 10); };
+const addMonths = (date: string, months: number) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const source = new Date(Date.UTC(year, month, day));
+  if (source.getUTCFullYear() !== year || source.getUTCMonth() !== month || source.getUTCDate() !== day) return null;
+  const targetMonthStart = new Date(Date.UTC(year, month + months, 1));
+  const targetMonthEnd = new Date(Date.UTC(targetMonthStart.getUTCFullYear(), targetMonthStart.getUTCMonth() + 1, 0)).getUTCDate();
+  targetMonthStart.setUTCDate(Math.min(day, targetMonthEnd));
+  return targetMonthStart.toISOString().slice(0, 10);
+};
 
 export function adaptJournalRecord(record: JournalRecord): { id: string; name: string; ticker: string; decisionDate: string; entryPrice: number | null; entryType: JournalReplayRow["entryType"]; actualReturn: number | null; expectedReturn: number | null; worstLoss: number | null; fundamental: FundamentalRow } {
   const actualEntry = n(record.entryPrice);
@@ -27,17 +39,27 @@ export function adaptJournalRecord(record: JournalRecord): { id: string; name: s
   };
 }
 
-function priceAtOrAfter(rows: PriceRow[], date: string) { return rows.find(row => row.date >= date)?.adjustedClose ?? null; }
+function priceAtOrAfter(rows: PriceRow[], date: string | null) { return date ? rows.find(row => row.date >= date)?.adjustedClose ?? null : null; }
 
 export function replayJournal(records: JournalRecord[], prices: PriceRow[], screening: ScreeningConfig): JournalReplayRow[] {
   const pricesByTicker = new Map<string, PriceRow[]>();
-  for (const row of prices.sort((a, b) => a.date.localeCompare(b.date))) pricesByTicker.set(row.ticker, [...(pricesByTicker.get(row.ticker) ?? []), row]);
+  for (const row of prices.sort((a, b) => a.date.localeCompare(b.date))) {
+    const bucket = pricesByTicker.get(row.ticker);
+    if (bucket) bucket.push(row);
+    else pricesByTicker.set(row.ticker, [row]);
+  }
   return records.map(record => {
     const adapted = adaptJournalRecord(record);
     const stockPrices = (pricesByTicker.get(adapted.ticker) ?? []).filter(row => row.date >= adapted.decisionDate);
     const firstPrice = adapted.entryPrice ?? priceAtOrAfter(stockPrices, adapted.decisionDate);
     const returnsFor = (months: number) => { const exit = priceAtOrAfter(stockPrices, addMonths(adapted.decisionDate, months)); return firstPrice && exit ? (exit / firstPrice - 1) * 100 : null; };
     const pathReturns = firstPrice ? stockPrices.map(row => (row.adjustedClose / firstPrice - 1) * 100) : [];
+    let maxRise: number | null = null;
+    let maxFall: number | null = null;
+    for (const value of pathReturns) {
+      maxRise = maxRise === null ? value : Math.max(maxRise, value);
+      maxFall = maxFall === null ? value : Math.min(maxFall, value);
+    }
     let peak = firstPrice ?? 0;
     let mdd: number | null = firstPrice ? 0 : null;
     for (const price of stockPrices) { peak = Math.max(peak, price.adjustedClose); if (peak > 0) mdd = Math.min(mdd ?? 0, (price.adjustedClose / peak - 1) * 100); }
@@ -46,9 +68,9 @@ export function replayJournal(records: JournalRecord[], prices: PriceRow[], scre
     return {
       id: adapted.id, investmentName: adapted.name, ticker: adapted.ticker, decisionDate: adapted.decisionDate, entryType: adapted.entryType, actualReturn: adapted.actualReturn, passCount: screened.passCount, validCount: screened.validCount,
       horizonReturns: { "1개월": returnsFor(1), "3개월": returnsFor(3), "6개월": returnsFor(6), "12개월": returnsFor(12), "24개월": returnsFor(24), "36개월": returnsFor(36) },
-      maxRise: pathReturns.length ? Math.max(...pathReturns) : null, maxFall: pathReturns.length ? Math.min(...pathReturns) : null, mdd,
+      maxRise, maxFall, mdd,
       expectedReturnMet: referenceReturn === null || adapted.expectedReturn === null ? null : referenceReturn >= adapted.expectedReturn,
-      worstLossExceeded: pathReturns.length === 0 || adapted.worstLoss === null ? null : Math.min(...pathReturns) < -Math.abs(adapted.worstLoss),
+      worstLossExceeded: maxFall === null || adapted.worstLoss === null ? null : maxFall < -Math.abs(adapted.worstLoss),
     };
   });
 }
@@ -67,4 +89,3 @@ export function journalSummary(rows: JournalReplayRow[]) {
     sampleWarning: rows.length < 10 ? "기록이 10건 미만이므로 통계 해석에 사용하면 안 됩니다." : rows.length < 30 ? "표본이 적어 참고 수준으로만 해석해야 합니다." : rows.length < 100 ? "제한적인 분석이 가능합니다. 업종과 시장 구성을 함께 확인하세요." : "표본 구성과 시장 국면을 점검한 뒤 해석하세요.",
   };
 }
-

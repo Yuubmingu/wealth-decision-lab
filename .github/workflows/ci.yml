@@ -1,0 +1,47 @@
+name: Site quality checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Check source quality
+        run: npm run lint
+
+      - name: Check production dependencies
+        run: npm run audit:security
+
+      - name: Run calculation tests
+        run: npm test
+
+      - name: Build and validate the deployable site
+        run: npm run build
+
+      - name: Check rendered pages
+        run: node --test tests/rendered-html.test.mjs
