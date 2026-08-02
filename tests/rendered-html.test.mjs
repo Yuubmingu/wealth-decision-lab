@@ -52,3 +52,19 @@ test("production worker delegates requests to static assets", async () => {
   assert.equal(await response.text(), "static response");
   assert.equal(requestedUrl, "https://example.com/calculators/home-purchase/");
 });
+
+test("quick calculators expose conservative assumptions without hidden comparison scores", async () => {
+  const homePurchase = await readFile(
+    new URL("../dist/client/calculators/home-purchase/index.html", import.meta.url),
+    "utf8",
+  );
+  const investmentCompare = await readFile(
+    new URL("../dist/client/calculators/investment-compare/index.html", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(homePurchase, /기존 대출 이자를 모르면 월 상환액 전부를 이자로 보수적으로 반영/);
+  assert.match(investmentCompare, /예상자산·손실 중심 비교/);
+  assert.match(investmentCompare, /비교지수는 상세 계산에서만 표시/);
+  assert.doesNotMatch(investmentCompare, /비교지수 \d+(?:\.\d+)?/);
+});

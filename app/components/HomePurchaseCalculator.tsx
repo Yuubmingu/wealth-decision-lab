@@ -16,6 +16,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import {
+  applyQuickHomeDebtAssumption,
   calculateHomePurchase,
   isRegulated,
   permittedMortgageTerms,
@@ -107,7 +108,11 @@ const defaults: HomePurchaseInputs = {
 export function HomePurchaseCalculator() {
   const [input, setInput] = useState(defaults);
   const [inputMode, setInputMode] = useState<InputMode>("quick");
-  const result = useMemo(() => calculateHomePurchase(input), [input]);
+  const calculationInput = useMemo(
+    () => inputMode === "quick" ? applyQuickHomeDebtAssumption(input) : input,
+    [input, inputMode],
+  );
+  const result = useMemo(() => calculateHomePurchase(calculationInput), [calculationInput]);
   const update = <K extends keyof HomePurchaseInputs>(key: K, value: HomePurchaseInputs[K]) => setInput((current) => ({ ...current, [key]: value }));
   const updateRegion = (region: RegionType) => setInput((current) => {
     const terms = permittedMortgageTerms(current.policyLoan, region);
@@ -187,7 +192,12 @@ export function HomePurchaseCalculator() {
 
         <div className="property-step"><span>04</span><div><h3>상환능력과 담보 공제</h3><p>DSR은 원리금, DTI는 기존 부채의 이자를 구분해 계산합니다.</p></div></div>
         <div className="field-grid">
-          {inputMode === "quick" ? <MoneyField label="기존 대출 월 상환액" value={input.existingAnnualDebtService / 12} onChange={(value) => update("existingAnnualDebtService", value * 12)} hint="대출이 없으면 0원" /> : <><MoneyField label="기존 대출 연간 원리금" value={input.existingAnnualDebtService} onChange={(value) => update("existingAnnualDebtService", value)} />
+          {inputMode === "quick" ? <><MoneyField label="기존 대출 월 상환액" value={input.existingAnnualDebtService / 12} onChange={(value) => setInput((current) => ({
+            ...current,
+            existingAnnualDebtService: value * 12,
+            existingAnnualInterest: value <= 0 ? 0 : Math.min(current.existingAnnualInterest, value * 12),
+          }))} hint="대출이 없으면 0원" />
+          {input.existingAnnualDebtService > 0 && <MoneyField label="기존 대출 월 이자" value={input.existingAnnualInterest / 12} onChange={(value) => update("existingAnnualInterest", Math.min(value * 12, input.existingAnnualDebtService))} hint="은행 앱의 최근 월 이자. 모르면 0원으로 두세요." />}</> : <><MoneyField label="기존 대출 연간 원리금" value={input.existingAnnualDebtService} onChange={(value) => update("existingAnnualDebtService", value)} />
           <MoneyField label="기존 대출 연간 이자" value={input.existingAnnualInterest} onChange={(value) => update("existingAnnualInterest", value)} /></>}
           <NumberField label="주담대 예상금리" value={input.mortgageRate} onChange={(value) => update("mortgageRate", value)} unit="%" step={0.01} hint="소수점 둘째 자리까지 입력" />
           {inputMode === "detailed" && <SelectField label="금리 유형" value={input.mortgageRateType} onChange={(value) => update("mortgageRateType", value as MortgageRateType)} hint="혼합형·주기형은 5년 이상 고정·변동주기의 보수적 대표비율입니다. 5년 미만이면 변동형을 선택하세요."><option value="variable">변동형·5년 미만 고정/주기</option><option value="mixed">혼합형 · 5년 이상 고정 후 변동</option><option value="periodic">주기형 · 5년 이상 주기</option><option value="fixed">전 기간 순수 고정형</option></SelectField>}
@@ -196,6 +206,7 @@ export function HomePurchaseCalculator() {
           <MoneyField label="방공제 예상액" value={input.roomDeduction} onChange={(value) => update("roomDeduction", value)} />
           <MoneyField label="선순위채권·임차보증금" value={input.seniorClaims} onChange={(value) => update("seniorClaims", value)} /></>}
         </div>
+        {inputMode === "quick" && input.existingAnnualDebtService > 0 && input.existingAnnualInterest === 0 && <div className="estimate-note"><Info size={15} /><span><b>월 이자를 모르는 경우:</b> DTI가 실제보다 높게 나오지 않도록 월 상환액 전부를 이자로 보는 보수적인 가정을 적용합니다. 은행 앱에서 이자를 확인해 입력하면 추정이 더 정확해집니다.</span></div>}
         {inputMode === "detailed" && <label className="range-field"><span>DSR 한도 직접 조정 <strong>{input.dsrLimit}%</strong></span><input type="range" min="20" max="50" step="1" value={input.dsrLimit} onChange={(event) => update("dsrLimit", Number(event.target.value))} /></label>}
 
         {inputMode === "detailed" && <><div className="property-step"><span>05</span><div><h3>세금과 부대비용</h3><p>세금은 조건에 따라 계산하고, 부대비용은 계획용 자동값 또는 실제 견적을 선택할 수 있습니다.</p></div></div>
@@ -207,7 +218,7 @@ export function HomePurchaseCalculator() {
           <MoneyField label="기타 계약·대출비용" value={input.extraClosingCosts} onChange={(value) => update("extraClosingCosts", value)} hint="인지·감정·보증료 등 별도 비용이 있으면 합산해 입력" />
         </div>
         {input.costEstimateMode === "auto" ? <div className="estimate-note"><Info size={15} /><span><b>자동 부대비용 기준:</b> 등기·법무비용은 매매가의 0.15%(80만~350만원), 채권 할인은 0.10%(30만~300만원), 이사·기본수리 예비비는 0.30%(200만~1,000만원)로 계획합니다. 실제 법무사 견적을 받으면 ‘직접 입력’으로 바꿔 주세요.</span></div> : <div className="field-grid manual-cost-fields"><MoneyField label="등기·법무비용 견적" value={input.legalFee} onChange={(value) => update("legalFee", value)} /><MoneyField label="국민주택채권 할인 견적" value={input.bondDiscount} onChange={(value) => update("bondDiscount", value)} hint="등기일 시가표준액·할인율 기준" /><MoneyField label="이사·수리 예비비" value={input.movingReserve} onChange={(value) => update("movingReserve", value)} /></div>}</>}
-        <QuickAssumptionNote mode={inputMode}>담보평가액·시세는 매매가와 같게, 아파트 84㎡, 변동금리, DSR 40%, 세금과 법무·채권·이사비는 자동 추정합니다. 회사대출과 별도 공제액은 0원으로 둡니다.</QuickAssumptionNote>
+        <QuickAssumptionNote mode={inputMode}>담보평가액·시세는 매매가와 같게, 아파트 84㎡, 변동금리, DSR 40%, 세금과 법무·채권·이사비는 자동 추정합니다. 기존 대출 이자를 모르면 월 상환액 전부를 이자로 보수적으로 반영하고, 회사대출과 별도 공제액은 0원으로 둡니다.</QuickAssumptionNote>
         <button type="button" className="home-reset" onClick={() => setInput(defaults)}><RotateCcw size={14} /> 예시 입력값으로 초기화</button>
       </section>
 

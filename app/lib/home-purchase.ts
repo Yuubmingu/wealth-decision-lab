@@ -68,6 +68,17 @@ export type PolicyDiagnosis = {
   dsrExcluded: boolean;
 };
 
+export function applyQuickHomeDebtAssumption(input: HomePurchaseInputs): HomePurchaseInputs {
+  if (input.existingAnnualDebtService <= 0 || input.existingAnnualInterest > 0) return input;
+
+  return {
+    ...input,
+    // 빠른 계산에서 이자액을 모르면 DTI를 낙관적으로 만들지 않도록
+    // 기존 원리금 상환액 전부를 이자로 보는 보수적인 상한 가정을 쓴다.
+    existingAnnualInterest: input.existingAnnualDebtService,
+  };
+}
+
 export function monthlyPayment(principal: number, annualRate: number, years: number) {
   if (principal <= 0 || years <= 0) return 0;
   const monthlyRate = annualRate / 100 / 12;

@@ -16,6 +16,7 @@ import {
 } from "../app/lib/finance";
 import {
   acquisitionTaxRate,
+  applyQuickHomeDebtAssumption,
   calculateHomePurchase,
   effectiveStressRate,
   estimateClosingCosts,
@@ -390,6 +391,45 @@ describe("내 집 마련 필요현금 계산", () => {
     movingReserve: 0,
     extraClosingCosts: 0,
   };
+
+  it("빠른 계산에서 기존 대출 이자를 모르면 원리금 전액을 보수적으로 이자로 본다", () => {
+    const assumed = applyQuickHomeDebtAssumption({
+      ...base,
+      existingAnnualDebtService: 12_000_000,
+      existingAnnualInterest: 0,
+    });
+
+    expect(assumed.existingAnnualInterest).toBe(12_000_000);
+  });
+
+  it("빠른 계산에서도 사용자가 입력한 기존 대출 이자는 유지한다", () => {
+    const assumed = applyQuickHomeDebtAssumption({
+      ...base,
+      existingAnnualDebtService: 12_000_000,
+      existingAnnualInterest: 3_000_000,
+    });
+
+    expect(assumed.existingAnnualInterest).toBe(3_000_000);
+  });
+
+  it("정책대출 빠른 계산의 보수적 이자 가정은 DTI 한도를 낮춘다", () => {
+    const policyInput: HomePurchaseInputs = {
+      ...base,
+      policyLoan: "didimdol",
+      householdProfile: "newlywed",
+      purchasePrice: 500_000_000,
+      appraisalValue: 500_000_000,
+      marketPrice: 500_000_000,
+      annualIncome: 80_000_000,
+      netAssets: 300_000_000,
+      existingAnnualDebtService: 24_000_000,
+      existingAnnualInterest: 0,
+    };
+    const rawDti = calculateHomePurchase(policyInput).limits.find((limit) => limit.key === "dti")?.value ?? 0;
+    const conservativeDti = calculateHomePurchase(applyQuickHomeDebtAssumption(policyInput)).limits.find((limit) => limit.key === "dti")?.value ?? 0;
+
+    expect(conservativeDti).toBeLessThan(rawDti);
+  });
 
   it("1주택 일반 취득세율은 6억원 1%, 9억원 3%로 이어진다", () => {
     expect(standardAcquisitionTaxRate(600_000_000)).toBe(1);
