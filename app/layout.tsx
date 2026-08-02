@@ -23,7 +23,12 @@ export const metadata: Metadata = {
     description: defaultDescription,
     images: ["/og.png"],
   },
-  verification: analyticsConfig.googleSearchConsoleVerification ? { google: analyticsConfig.googleSearchConsoleVerification } : undefined,
+  verification: {
+    google: analyticsConfig.googleSearchConsoleVerification || undefined,
+    other: analyticsConfig.naverSearchAdvisorVerification
+      ? { "naver-site-verification": analyticsConfig.naverSearchAdvisorVerification }
+      : undefined,
+  },
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };
 

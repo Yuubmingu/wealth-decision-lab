@@ -33,6 +33,15 @@ test("uses the custom domain for canonical URLs and discovery files", async () =
   assert.doesNotMatch(`${home}${calculator}${robots}${sitemap}`, /wealth-decision-lab\.pages\.dev/);
 });
 
+test("renders the Naver Search Advisor ownership verification tag", async () => {
+  const home = await readFile(new URL("../dist/client/index.html", import.meta.url), "utf8");
+
+  assert.match(
+    home,
+    /<meta(?=[^>]*name="naver-site-verification")(?=[^>]*content="31e00361a482835254f16bca35248aa71d48c3b6")[^>]*>/,
+  );
+});
+
 test("production worker delegates requests to static assets", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
