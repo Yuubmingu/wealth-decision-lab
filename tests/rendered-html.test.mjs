@@ -42,6 +42,15 @@ test("renders the Naver Search Advisor ownership verification tag", async () => 
   );
 });
 
+test("publishes the authorized AdSense seller record at the site root", async () => {
+  const ads = await readFile(new URL("../dist/client/ads.txt", import.meta.url), "utf8");
+
+  assert.equal(
+    ads.trim(),
+    "google.com, pub-1027745867770826, DIRECT, f08c47fec0942fa0",
+  );
+});
+
 test("production worker delegates requests to static assets", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
