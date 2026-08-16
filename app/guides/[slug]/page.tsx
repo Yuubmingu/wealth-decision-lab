@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { authorName, createPageMetadata, pageUrl, siteName, siteUrl } from "../../seo";
+import { authorName, breadcrumbSchema, createPageMetadata, pageUrl, serializeJsonLd, siteName, siteUrl } from "../../seo";
 import { CompareBarChart, MilestoneStackChart } from "../../components/charts/Charts";
 import { getGuide, guides } from "../data";
 import { guideCharts } from "../charts";
@@ -58,7 +58,11 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     inLanguage: "ko-KR",
     isPartOf: { "@type": "WebSite", name: siteName, url: websiteUrl },
   };
-  const serializedArticleSchema = JSON.stringify(articleSchema).replace(/</g, "\\u003c");
+  const serializedArticleSchema = serializeJsonLd(articleSchema);
+  const serializedBreadcrumb = serializeJsonLd(breadcrumbSchema([
+    { name: "가이드", path: "/guides" },
+    { name: guide.title, path: `/guides/${guide.slug}` },
+  ]));
 
   return (
     <main>
@@ -129,6 +133,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         </div>
       </article>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedArticleSchema }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedBreadcrumb }} />
     </main>
   );
 }

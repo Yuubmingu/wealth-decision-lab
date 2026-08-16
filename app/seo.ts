@@ -25,6 +25,28 @@ export function pageUrl(path: string): string {
   return `${siteUrl}${pagePath(path)}`;
 }
 
+/**
+ * 검색결과에서 사이트 안의 위치를 보여 주는 이동경로 구조화 데이터.
+ * 링크만 있고 표시하지 않는 경로는 넣지 않습니다.
+ */
+export function breadcrumbSchema(trail: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [{ name: "홈", path: "/" }, ...trail].map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: pageUrl(item.path),
+    })),
+  };
+}
+
+/** JSON-LD 를 페이지에 넣기 전에 스크립트 종료 태그를 막습니다. */
+export function serializeJsonLd(payload: unknown) {
+  return JSON.stringify(payload).replace(/</g, "\\u003c");
+}
+
 export function createPageMetadata({
   title,
   description,
