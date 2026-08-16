@@ -2,11 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { createPageMetadata, pageUrl, siteName, siteUrl } from "../../seo";
+import { authorName, createPageMetadata, pageUrl, siteName, siteUrl } from "../../seo";
+import { CompareBarChart, MilestoneStackChart } from "../../components/charts/Charts";
 import { getGuide, guides } from "../data";
+import { guideCharts } from "../charts";
 
 export function generateStaticParams() {
   return guides.map((guide) => ({ slug: guide.slug }));
+}
+
+/** 슬러그에 맞는 차트를 고릅니다. 차트가 없는 글은 아무것도 그리지 않습니다. */
+function GuideChartBlock({ slug }: { slug: string }) {
+  const chart = guideCharts[slug];
+  if (!chart) return null;
+  return chart.kind === "milestones"
+    ? <MilestoneStackChart title={chart.title} caption={chart.caption} data={chart.data} principalLabel={chart.principalLabel} profitLabel={chart.profitLabel} />
+    : <CompareBarChart title={chart.title} caption={chart.caption} data={chart.data} unit={chart.unit} valueLabel={chart.valueLabel} />;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -39,7 +50,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     datePublished: guide.publishedAt,
     dateModified: guide.reviewedAt,
     image: { "@type": "ImageObject", url: `${siteUrl}/og.png`, width: 1200, height: 630 },
-    author: { "@type": "Organization", name: siteName, url: pageUrl("/about") },
+    // 글을 쓴 사람을 사이트 자체가 아니라 일관된 필명으로 표시합니다.
+    author: { "@type": "Person", name: authorName, url: pageUrl("/about") },
     publisher: { "@type": "Organization", name: siteName, url: websiteUrl },
     articleSection: guide.category,
     citation: guide.sources.map((source) => source.url),
@@ -57,7 +69,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <h1 id="guide-title">{guide.title}</h1>
           <p>{guide.summary}</p>
           <dl className="guide-meta">
-            <div><dt>작성</dt><dd>연구소 운영자</dd></div>
+            <div><dt>작성</dt><dd>{authorName}</dd></div>
             <div><dt>발행</dt><dd><time dateTime={guide.publishedAt}>{guide.publishedAt}</time></dd></div>
             <div><dt>최근 검토</dt><dd><time dateTime={guide.reviewedAt}>{guide.reviewedAt}</time></dd></div>
             <div><dt>검토 범위</dt><dd>공식 출처·계산 가정</dd></div>
@@ -66,11 +78,13 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         </header>
 
         <div className="article-body">
-          {guide.sections.map((section) => (
+          {guide.sections.map((section, index) => (
             <section key={section.heading}>
               <h2>{section.heading}</h2>
               {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
               {section.checklist ? <ul>{section.checklist.map((item) => <li key={item}>{item}</li>)}</ul> : null}
+              {/* 도입부를 읽고 난 자리에 그림을 둡니다. 맨 위에 두면 맥락 없이 숫자만 보게 됩니다. */}
+              {index === 1 ? <GuideChartBlock slug={guide.slug} /> : null}
             </section>
           ))}
 
@@ -89,11 +103,12 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             </div>
           </section>
 
-          <blockquote>좋은 계산은 미래를 맞히는 계산이 아니라, 어떤 가정을 사용했는지 다시 확인할 수 있는 계산입니다.</blockquote>
+          <blockquote>{guide.takeaway}</blockquote>
 
           <section aria-labelledby="scope-heading">
-            <h2 id="scope-heading">이 글과 계산기의 범위</h2>
-            <p>이 글은 일반적인 의사결정 정리와 입력값 기반 시뮬레이션을 위한 자료입니다. 실제 세금, 계약 조건, 투자 성과, 법률 판단을 보장하거나 개인별 자문을 제공하지 않습니다. 공식 출처 링크도 개인 상황에 대한 결론을 대신하지 않습니다.</p>
+            <h2 id="scope-heading">이 글이 다루지 않는 것</h2>
+            <p>{guide.scopeNote}</p>
+            <p>계산 결과는 입력한 가정에 따른 시뮬레이션이며 개인별 자문이 아닙니다. 전체 범위는 <Link href="/disclaimer">금융정보 면책</Link>에서 확인하실 수 있습니다.</p>
           </section>
 
           <section className="guide-sources" aria-labelledby="sources-heading">

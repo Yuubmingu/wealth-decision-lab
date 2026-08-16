@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 export const siteUrl = "https://yuubmingulab.com";
 export const siteName = "부자 회사원의 의사결정 연구소";
+/** 글과 계산식을 작성·검토하는 운영자의 필명. 모든 글에 같은 이름을 씁니다. */
+export const authorName = "부자 직장인 밍구";
 export const defaultDescription = "내 집 마련, 월세 절약, 이직, 자동차, 대출과 투자의 장기 자산 효과를 투명한 공식으로 계산하는 무료 재무 의사결정 도구입니다.";
 
 type PageMetadataOptions = {
