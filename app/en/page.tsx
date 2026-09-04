@@ -132,6 +132,15 @@ const calculators = [
   },
   {
     number: "LAB 02",
+    icon: Eye,
+    title: "Stock Decision Journal",
+    description:
+      "Record valuation, three-year operating trends, cash flow, and financial safety, then compare the original thesis with the actual outcome.",
+    href: "/tools/decision-journal",
+    example: "Stored locally in your browser with JSON export",
+  },
+  {
+    number: "LAB 03",
     icon: BarChart3,
     title: "Quant Backtest",
     description:
@@ -140,7 +149,7 @@ const calculators = [
     example: "CAGR, drawdown, and trade history",
   },
   {
-    number: "LAB 03",
+    number: "LAB 04",
     icon: Sigma,
     title: "Wealth Action Board",
     description:
