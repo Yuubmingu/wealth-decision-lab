@@ -67,7 +67,13 @@ test("renders the Naver Search Advisor ownership verification tag", async () => 
 });
 
 test("publishes the authorized AdSense seller record at the site root", async () => {
+  const home = await readFile(new URL("../dist/client/index.html", import.meta.url), "utf8");
   const ads = await readFile(new URL("../dist/client/ads.txt", import.meta.url), "utf8");
+
+  assert.match(
+    home,
+    /<meta(?=[^>]*name="google-adsense-account")(?=[^>]*content="ca-pub-1027745867770826")[^>]*>/,
+  );
 
   assert.equal(
     ads.trim(),

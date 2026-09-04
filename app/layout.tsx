@@ -5,6 +5,11 @@ import { AnalyticsScripts } from "./components/AnalyticsScripts";
 import { SiteFooter, SiteHeader } from "./components/SiteChrome";
 import { defaultDescription, pageUrl, siteName, siteUrl } from "./seo";
 
+const adsensePublisherId = analyticsConfig.googleAdSensePublisherId.trim().replace(/^ca-/, "");
+const googleAdSenseAccount = /^pub-\d{16}$/.test(adsensePublisherId)
+  ? `ca-${adsensePublisherId}`
+  : "";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: siteName, template: `%s | ${siteName}` },
@@ -29,6 +34,9 @@ export const metadata: Metadata = {
       ? { "naver-site-verification": analyticsConfig.naverSearchAdvisorVerification }
       : undefined,
   },
+  other: googleAdSenseAccount
+    ? { "google-adsense-account": googleAdSenseAccount }
+    : undefined,
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };
 

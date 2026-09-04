@@ -1,6 +1,7 @@
 export const analyticsConfig = {
   googleAnalyticsMeasurementId: process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID ?? "",
-  googleAdSensePublisherId: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_PUBLISHER_ID ?? "",
+  googleAdSensePublisherId:
+    process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_PUBLISHER_ID?.trim() || "pub-1027745867770826",
   googleSearchConsoleVerification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? "",
   naverSearchAdvisorVerification:
     process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION?.trim() ||
