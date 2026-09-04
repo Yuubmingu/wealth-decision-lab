@@ -20,12 +20,12 @@
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
-    "lucide-react": "^1.24.0",
-    "next": "16.2.12",
-    "papaparse": "^5.5.4",
+    "lucide-react": "^1.39.0",
+    "next": "16.3.4",
+    "papaparse": "^5.7.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "recharts": "^3.9.2"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.54.4",
@@ -34,18 +34,18 @@
     "@types/node": "22.19.19",
     "@types/papaparse": "^5.5.2",
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4",
-    "@vitejs/plugin-react": "6.0.5",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
     "@vitejs/plugin-rsc": "^0.5.34",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.3.4",
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vinext": "^1.0.0-beta.9",
-    "vite": "8.2.0",
-    "vitest": "^4.1.10",
+    "vite": "8.2.2",
+    "vitest": "^4.1.11",
     "wrangler": "^4.129.0"
   },
   "overrides": {
