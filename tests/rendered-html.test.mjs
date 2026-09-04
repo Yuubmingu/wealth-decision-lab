@@ -15,6 +15,7 @@ test("renders production pages without development preview metadata", async () =
   assert.doesNotMatch(home, developmentPreviewMeta);
   assert.match(home, /부자 회사원의 의사결정 연구소/);
   assert.match(calculator, /내 집 마련 필요현금 계산기/);
+  assert.match(home, /Open this page in English using automatic translation/);
 });
 
 test("uses the custom domain for canonical URLs and discovery files", async () => {

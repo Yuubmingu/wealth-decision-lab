@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, FlaskConical, Menu } from "lucide-react";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const navigationItems = [
   { href: "/calculators/goal-assets", label: "목표" },
@@ -26,15 +27,18 @@ export function SiteHeader() {
           <span className="brand-mark"><FlaskConical size={18} strokeWidth={1.8} /></span>
           <span>부자 회사원의<br />의사결정 연구소</span>
         </Link>
-        <nav aria-label="주요 메뉴" className="main-nav desktop-nav">
-          {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
-        </nav>
-        <details className="mobile-nav">
-          <summary><Menu size={19} aria-hidden="true" /> 메뉴</summary>
-          <nav aria-label="모바일 주요 메뉴">
+        <div className="header-actions">
+          <nav aria-label="주요 메뉴" className="main-nav desktop-nav">
             {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
           </nav>
-        </details>
+          <LanguageSwitcher />
+          <details className="mobile-nav">
+            <summary><Menu size={19} aria-hidden="true" /> 메뉴</summary>
+            <nav aria-label="모바일 주요 메뉴">
+              {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+            </nav>
+          </details>
+        </div>
       </div>
     </header>
   );

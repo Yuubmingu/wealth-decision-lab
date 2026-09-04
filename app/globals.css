@@ -65,9 +65,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .header-inner { height: 100%; display: flex; justify-content: space-between; align-items: center; }
 .brand { display: inline-flex; align-items: center; gap: 11px; font-size: 13px; line-height: 1.25; font-weight: 700; letter-spacing: -.025em; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--radius); background: var(--green); color: white; }
+.header-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .main-nav { display: flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; }
 .main-nav a { min-height: 44px; display: inline-flex; align-items: center; padding: 8px 9px; border-radius: var(--radius-sm); color: var(--ink-soft); transition: color .18s, background .18s; }
 .main-nav a:hover { color: var(--ink); background: var(--surface-muted); }
+.language-switch { min-width: 66px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--green-dark); font-size: 12px; font-weight: 750; white-space: nowrap; cursor: pointer; transition: border-color .18s, background .18s; }
+.language-switch:hover { border-color: var(--green); background: var(--green-pale); }
+.language-switch small { color: var(--muted); font-size: 9px; font-weight: 650; }
 .mobile-nav { display: none; position: relative; }
 .mobile-nav summary { min-width: 88px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 700; list-style: none; cursor: pointer; }
 .mobile-nav summary::-webkit-details-marker { display: none; }
@@ -525,8 +529,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 720px) {
   .shell { width: min(100% - 32px, 1184px); }
   .site-header { height: auto; min-height: 64px; }
-  .header-inner { align-items: flex-start; padding-block: 12px; gap: 14px; }
+  .header-inner { align-items: center; padding-block: 12px; gap: 12px; }
+  .header-actions { gap: 6px; }
   .brand-mark { width: 34px; height: 34px; }
+  .language-switch { min-width: 48px; min-height: 44px; padding-inline: 8px; }
+  .language-switch small { display: none; }
+  .mobile-nav summary { min-width: 78px; padding-inline: 10px; }
   .hero { padding-block: 56px 64px; grid-template-columns: 1fr; min-height: auto; }
   .hero-copy h1 { font-size: clamp(42px, 12vw, 58px); }
   .hero-description { font-size: 16px; }
@@ -582,6 +590,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .footer-grid { grid-template-columns: 1fr; gap: 36px; }
   .footer-note { justify-content: flex-start; }
   .ad-placeholder { width: min(100% - 32px, 1184px); margin-bottom: 80px; }
+}
+
+@media (max-width: 460px) {
+  .brand > span:last-child { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
