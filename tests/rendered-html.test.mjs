@@ -20,6 +20,10 @@ test("renders production pages without development preview metadata", async () =
 });
 
 test("publishes a native English overview without claiming the calculators are translated", async () => {
+  const koreanHome = await readFile(
+    new URL("../dist/client/index.html", import.meta.url),
+    "utf8",
+  );
   const englishHome = await readFile(
     new URL("../dist/client/en/index.html", import.meta.url),
     "utf8",
@@ -29,6 +33,11 @@ test("publishes a native English overview without claiming the calculators are t
   assert.match(englishHome, /calculator interfaces and detailed sources are currently in Korean/i);
   assert.match(englishHome, /South Korean rules/);
   assert.match(englishHome, /aria-label="한국어 홈페이지로 이동"/);
+  for (const page of [koreanHome, englishHome]) {
+    assert.match(page, /<link(?=[^>]*rel="alternate")(?=[^>]*hreflang="ko-KR")(?=[^>]*href="https:\/\/yuubmingulab\.com\/")[^>]*>/i);
+    assert.match(page, /<link(?=[^>]*rel="alternate")(?=[^>]*hreflang="en")(?=[^>]*href="https:\/\/yuubmingulab\.com\/en\/")[^>]*>/i);
+    assert.match(page, /<link(?=[^>]*rel="alternate")(?=[^>]*hreflang="x-default")(?=[^>]*href="https:\/\/yuubmingulab\.com\/")[^>]*>/i);
+  }
 });
 
 test("uses the custom domain for canonical URLs and discovery files", async () => {
