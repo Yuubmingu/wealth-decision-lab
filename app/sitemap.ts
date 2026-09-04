@@ -16,6 +16,7 @@ const CONTENT_REVISED = "2026-08-16"; // 계산기 본문·차트·소개 페이
 const UNCHANGED = "2026-08-01";
 const ENGLISH_HOME_PUBLISHED = "2026-09-04";
 const ABOUT_REVISED = "2026-09-05";
+const POLICY_CONTACT_REVISED = "2026-09-05";
 
 const routes: { path: string; lastModified: string }[] = [
   { path: "", lastModified: UNCHANGED },
@@ -36,10 +37,10 @@ const routes: { path: string; lastModified: string }[] = [
   // 이번 개편에서 손대지 않은 페이지
   { path: "/tools/decision-journal", lastModified: UNCHANGED },
   { path: "/invest/quant-backtest", lastModified: UNCHANGED },
-  { path: "/privacy", lastModified: UNCHANGED },
+  { path: "/privacy", lastModified: POLICY_CONTACT_REVISED },
   { path: "/disclaimer", lastModified: UNCHANGED },
   { path: "/terms", lastModified: UNCHANGED },
-  { path: "/contact", lastModified: UNCHANGED },
+  { path: "/contact", lastModified: POLICY_CONTACT_REVISED },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

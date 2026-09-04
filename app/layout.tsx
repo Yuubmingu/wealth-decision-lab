@@ -9,6 +9,9 @@ const adsensePublisherId = analyticsConfig.googleAdSensePublisherId.trim().repla
 const googleAdSenseAccount = /^pub-\d{16}$/.test(adsensePublisherId)
   ? `ca-${adsensePublisherId}`
   : "";
+const googleAdSenseScriptUrl = googleAdSenseAccount
+  ? `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(googleAdSenseAccount)}`
+  : "";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -54,6 +57,11 @@ const serializedWebsiteSchema = JSON.stringify(websiteSchema).replace(/</g, "\\u
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
+      <head>
+        {googleAdSenseScriptUrl ? (
+          <script async src={googleAdSenseScriptUrl} crossOrigin="anonymous" />
+        ) : null}
+      </head>
       <body>
         <a href="#main-content" className="skip-link">본문으로 건너뛰기</a>
         <SiteHeader />

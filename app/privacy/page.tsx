@@ -26,8 +26,9 @@ export default function Page() {
   const contactEmail = publicEmailConfigured ? analyticsConfig.contactEmail.trim() : "";
 
   return (
-    <StaticPage eyebrow="POLICY · UPDATED 2026.08.01" title="개인정보처리방침" description="회원 계정과 운영자 데이터베이스 없이 제공하는 현재 서비스의 처리 범위와, 분석·광고 도입 시 지켜야 할 조건을 구분해 안내합니다.">
+    <StaticPage eyebrow="POLICY · UPDATED 2026.09.05" title="개인정보처리방침" description="회원 계정과 운영자 데이터베이스 없이 제공하는 현재 서비스의 처리 범위와, 분석·광고 연결 시 적용되는 조건을 구분해 안내합니다.">
       <p className="policy-summary"><strong>핵심 요약:</strong> 계산기에 입력한 급여·자산·주거비는 현재 브라우저 안에서 계산되며 운영자 서버에 저장되지 않습니다. 다만 사이트 전송과 보안을 담당하는 Cloudflare는 접속 과정에서 IP 주소 등 통신 정보를 처리할 수 있습니다.</p>
+      {adsConfigured ? <p>AdSense 사이트 연결과 검토를 위해 Google 광고 스크립트를 페이지에서 불러옵니다. 사이트가 승인되고 광고가 실제 제공되면 Google 인증 CMP의 적용 지역·동의 상태에 따라 쿠키 또는 유사 식별자와 광고 관련 정보가 처리될 수 있습니다.</p> : null}
       {!publicEmailConfigured ? <p className="status-box"><strong>개인정보 권리 요청용 비공개 연락처가 아직 설정되지 않았습니다.</strong><br />공개 GitHub Issues에는 개인정보를 올릴 수 없으므로 권리 요청 채널로 사용하지 않습니다. 전용 이메일이 설정될 때까지 이 사이트는 Google Analytics와 광고 스크립트를 불러오지 않습니다.</p> : null}
 
       <h2>1. 처리하는 정보와 목적</h2>
@@ -55,10 +56,10 @@ export default function Page() {
       <ul className="service-status" aria-label="외부 서비스 활성화 상태">
         <li><strong>개인정보 요청 연락처:</strong> {publicEmailConfigured ? `${contactEmail} 이메일이 설정되어 있습니다.` : "비공개 전용 이메일이 설정되지 않았습니다."}</li>
         <li><strong>Google Analytics:</strong> {analyticsEnabled ? "측정 ID와 비공개 연락처가 모두 설정되어 있습니다. 각 브라우저에서 선택적 이용통계에 동의한 뒤에만 스크립트를 불러옵니다." : analyticsConfigured ? "측정 ID는 있지만 비공개 개인정보 요청 연락처가 없어 안전장치에 따라 비활성화되어 있습니다." : "현재 유효한 측정 ID가 없어 활성화되어 있지 않습니다."}</li>
-        <li><strong>Google AdSense:</strong> {adsConfigured ? `게시자 ID는 설정되어 있지만${publicEmailConfigured ? "" : " 비공개 연락처가 없고"}, Google 인증 CMP와 광고 코드를 연결하지 않아 광고 스크립트는 비활성화되어 있습니다.` : "현재 유효한 게시자 ID가 없으며 광고 스크립트도 활성화되어 있지 않습니다."}</li>
+        <li><strong>Google AdSense:</strong> {adsConfigured ? `게시자 ID와 사이트 연결 코드가 설정되어 있고 Google 인증 CMP를 사용합니다.${publicEmailConfigured ? "" : " 다만 비공개 연락처가 없어 운영 전 보완이 필요합니다."} 승인 전에는 광고가 표시되지 않을 수 있습니다.` : "현재 유효한 게시자 ID가 없으며 광고 스크립트도 활성화되어 있지 않습니다."}</li>
       </ul>
       {analyticsEnabled ? <p>이용자가 선택적 이용통계에 동의해 Analytics가 실행되는 경우 방문 페이지, 대략적인 지역, 기기·브라우저 정보와 사이트 내 정해진 동작을 Google이 처리할 수 있습니다. 계산기에 입력한 개별 급여·자산·금액은 분석 이벤트의 값이나 이름으로 전송하지 않습니다.</p> : null}
-      {adsConfigured ? <p>향후 인증 CMP와 AdSense를 실제로 연결하면 Google과 광고 파트너가 광고 제공, 빈도 관리, 측정과 부정행위 방지를 위해 쿠키 또는 유사 식별자를 사용할 수 있습니다. 실제 활성화 시점에 파트너와 동의 절차를 다시 확인하고 이 방침을 갱신합니다.</p> : null}
+      {adsConfigured ? <p>AdSense 사이트 연결 코드는 소유권 확인과 사이트 검토를 위해 로드됩니다. 승인 후 광고가 실제 표시되면 Google과 광고 파트너가 광고 제공, 빈도 관리, 측정과 부정행위 방지를 위해 쿠키 또는 유사 식별자를 사용할 수 있습니다. 동의가 필요한 지역에서는 Google 인증 CMP를 통해 선택지를 제공하며, 이용자는 Google 광고 센터와 CMP에서 관련 설정을 관리할 수 있습니다.</p> : null}
 
       <h2>4. 외부 처리자와 국외 처리</h2>
       <div className="responsive-table" role="region" aria-label="외부 처리자와 국외 처리 내역" tabIndex={0}>
@@ -66,14 +67,14 @@ export default function Page() {
           <thead><tr><th scope="col">서비스</th><th scope="col">목적·정보</th><th scope="col">이전 국가·시점</th><th scope="col">근거·방법</th><th scope="col">보유 기준</th></tr></thead>
           <tbody>
             <tr><th scope="row">Cloudflare, Inc.</th><td>콘텐츠 전송·보안·장애 대응을 위한 IP 주소, 요청 정보와 보안 로그</td><td>페이지 요청 시 미국을 포함한 Cloudflare의 글로벌 인프라</td><td>개인정보 보호법 제28조의8 제1항 제3호에 따른 계약 이행에 필요한 처리위탁·보관(이 방침에 공개), HTTPS 네트워크 전송</td><td>Cloudflare 계약·서비스 설정 및 보안상 필요한 기간에 따르며, 애플리케이션 코드가 별도 보존본을 만들지 않음</td></tr>
-            <tr><th scope="row">Google LLC 및 관련 법인</th><td>동의 후 Analytics가 활성화된 경우 방문 페이지, 대략적 지역, 기기·브라우저 정보와 정해진 이용 동작</td><td>이용자가 선택적 이용통계에 동의해 스크립트가 실행될 때 미국 등 Google이 운영하는 국가</td><td>개인정보 보호법 제28조의8 제1항 제1호에 따른 선택적 동의, HTTPS 네트워크 전송</td><td>운영자가 Analytics 관리 화면에서 정한 보존기간과 Google 정책에 따름. 광고는 현재 비활성화</td></tr>
+            <tr><th scope="row">Google LLC 및 관련 법인</th><td>AdSense 사이트 연결·검토, 인증 CMP, 승인 후 광고 제공·빈도 관리·측정·부정행위 방지와, 동의 후 Analytics 이용통계를 위한 IP 주소, 페이지·기기·브라우저 정보, 동의 상태 및 광고 관련 식별자</td><td>Google 스크립트가 로드되거나 이용자가 Analytics·광고 관련 처리에 동의하고 기능이 실행될 때 미국 등 Google이 운영하는 국가</td><td>관련 법령과 Google 정책에 따른 고지·동의 및 HTTPS 네트워크 전송. 맞춤광고 등 동의가 필요한 처리는 인증 CMP 선택을 따름</td><td>운영자가 Google 관리 화면에서 정한 설정과 Google 정책 및 법적 보존 의무에 따름</td></tr>
             {!publicEmailConfigured ? <tr><th scope="row">GitHub, Inc.</th><td>공개 Issues를 통한 개인정보가 없는 일반 오류·개선 의견</td><td>사용자가 외부 링크로 이동해 게시할 때 미국 등 GitHub의 인프라</td><td>GitHub를 직접 선택해 이용, HTTPS 네트워크 전송</td><td>게시물 삭제 여부와 GitHub 계정·서비스 정책에 따름</td></tr> : null}
           </tbody>
         </table>
       </div>
       <p>국외 수탁자의 구체적인 서버 위치와 하위처리자는 글로벌 네트워크 운영에 따라 달라질 수 있습니다. 운영자는 외부 서비스를 실제 활성화하기 전에 계약·관리 화면의 보존 설정을 확인하고 이 표를 갱신합니다. 국외 이전 근거는 <a href="https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&amp;lsJoLnkSeq=1029334737" target="_blank" rel="noreferrer">개인정보 보호법 제28조의8</a>에서, 사업자별 정책은 <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noreferrer">Cloudflare 개인정보처리방침</a>, <a href="https://policies.google.com/privacy?hl=ko" target="_blank" rel="noreferrer">Google 개인정보처리방침</a>{!publicEmailConfigured ? <>과 <a href="https://docs.github.com/ko/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noreferrer">GitHub 개인정보취급방침</a></> : null}에서 확인할 수 있습니다.</p>
 
-      <h2>5. 광고·동의 기능을 켜기 전 기준</h2>
+      <h2>5. 광고·동의 운영 기준</h2>
       <p>유럽경제지역, 영국 또는 스위스 등 동의가 필요한 지역에 광고를 제공할 경우에는 Google이 요구하는 인증 CMP를 먼저 설정하고, 사용자가 선택하기 전에는 동의가 필요한 저장·맞춤광고 기능을 실행하지 않아야 합니다. Analytics용 ‘선택적 이용통계’ 창은 광고용 인증 CMP가 아니며, 이를 AdSense 동의 도구로 사용하지 않습니다.</p>
       <ul>
         <li>실제로 사용하는 Analytics 이벤트와 광고 파트너를 이 방침에 반영합니다.</li>

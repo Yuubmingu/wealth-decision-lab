@@ -6,7 +6,8 @@ export const analyticsConfig = {
   naverSearchAdvisorVerification:
     process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION?.trim() ||
     "31e00361a482835254f16bca35248aa71d48c3b6",
-  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "",
+  contactEmail:
+    process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "privacy@yuubmingulab.com",
 };
 
 export const analyticsEvents = [

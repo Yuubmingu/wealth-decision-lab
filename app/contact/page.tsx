@@ -18,7 +18,7 @@ export default function Page() {
   const email = isSafePublicEmail(configuredEmail) ? configuredEmail : "";
 
   return (
-    <StaticPage eyebrow="CONTACT · UPDATED 2026.08.01" title="계산 오류와 개선 의견을 알려주세요" description="개인 급여나 자산 자료는 보내지 말고, 계산을 재현하는 데 필요한 조건만 익명으로 정리해 주세요.">
+    <StaticPage eyebrow="CONTACT · UPDATED 2026.09.05" title="계산 오류와 개선 의견을 알려주세요" description="개인 급여나 자산 자료는 보내지 말고, 계산을 재현하는 데 필요한 조건만 익명으로 정리해 주세요.">
       <h2>현재 문의 접수 상태</h2>
       {email ? (
         <p className="status-box status-ready"><strong>이메일 문의를 받고 있습니다.</strong><br /><a href={`mailto:${email}`}>{email}</a>로 보내 주세요. 이 주소 외의 계정이나 메신저로 개인정보를 요구하지 않습니다.</p>

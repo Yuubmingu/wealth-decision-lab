@@ -74,11 +74,26 @@ test("publishes the authorized AdSense seller record at the site root", async ()
     home,
     /<meta(?=[^>]*name="google-adsense-account")(?=[^>]*content="ca-pub-1027745867770826")[^>]*>/,
   );
+  assert.match(
+    home,
+    /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-1027745867770826/,
+  );
 
   assert.equal(
     ads.trim(),
     "google.com, pub-1027745867770826, DIRECT, f08c47fec0942fa0",
   );
+});
+
+test("publishes the verified private contact address on contact and privacy pages", async () => {
+  const contact = await readFile(new URL("../dist/client/contact/index.html", import.meta.url), "utf8");
+  const privacy = await readFile(new URL("../dist/client/privacy/index.html", import.meta.url), "utf8");
+
+  for (const page of [contact, privacy]) {
+    assert.match(page, /mailto:privacy@yuubmingulab\.com/);
+  }
+  assert.match(privacy, /Google 인증 CMP를 사용합니다/);
+  assert.doesNotMatch(privacy, /광고는 현재 비활성화/);
 });
 
 test("production worker delegates requests to static assets", async () => {
