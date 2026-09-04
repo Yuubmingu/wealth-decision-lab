@@ -15,6 +15,7 @@ export const dynamic = "force-static";
 const CONTENT_REVISED = "2026-08-16"; // 계산기 본문·차트·소개 페이지 개편
 const UNCHANGED = "2026-08-01";
 const ENGLISH_HOME_PUBLISHED = "2026-09-04";
+const ABOUT_REVISED = "2026-09-05";
 
 const routes: { path: string; lastModified: string }[] = [
   { path: "", lastModified: UNCHANGED },
@@ -31,7 +32,7 @@ const routes: { path: string; lastModified: string }[] = [
   { path: "/calculators/rebalancing", lastModified: CONTENT_REVISED },
   { path: "/tools/growth-board", lastModified: CONTENT_REVISED },
   { path: "/guides", lastModified: CONTENT_REVISED },
-  { path: "/about", lastModified: CONTENT_REVISED },
+  { path: "/about", lastModified: ABOUT_REVISED },
   // 이번 개편에서 손대지 않은 페이지
   { path: "/tools/decision-journal", lastModified: UNCHANGED },
   { path: "/invest/quant-backtest", lastModified: UNCHANGED },

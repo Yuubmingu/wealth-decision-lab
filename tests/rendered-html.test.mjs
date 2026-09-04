@@ -116,3 +116,25 @@ test("quick calculators expose conservative assumptions without hidden compariso
   assert.match(investmentCompare, /비교지수는 상세 계산에서만 표시/);
   assert.doesNotMatch(investmentCompare, /비교지수 \d+(?:\.\d+)?/);
 });
+
+test("publishes first-hand experience and transparent authorship on reviewed guides", async () => {
+  const rentGuide = await readFile(
+    new URL("../dist/client/guides/rent-100k-15years/index.html", import.meta.url),
+    "utf8",
+  );
+  const savingGuide = await readFile(
+    new URL("../dist/client/guides/rent-saving-gap/index.html", import.meta.url),
+    "utf8",
+  );
+  const offerGuide = await readFile(
+    new URL("../dist/client/guides/base-vs-bonus/index.html", import.meta.url),
+    "utf8",
+  );
+  const about = await readFile(new URL("../dist/client/about/index.html", import.meta.url), "utf8");
+
+  assert.match(rentGuide, /월세 110만원대를 부담하며 확인한 것/);
+  assert.match(savingGuide, /155만원에서 130만원으로 줄었을 때/);
+  assert.match(offerGuide, /실제 이직 제안을 검토하며 만든 비교 기준/);
+  assert.match(offerGuide, /회사명과 개인 보상액은 공개하지 않습니다/);
+  assert.match(about, /코드 작성과 문장 초안 정리에는 AI 도구의 도움/);
+});

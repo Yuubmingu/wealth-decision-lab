@@ -455,7 +455,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .guide-meta dd { margin: 4px 0 0; color: var(--ink-soft); font-size: 11px; overflow-wrap: anywhere; }
 .guide-article header .review-scope { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
 .article-body { max-width: 720px; margin: 48px auto 0; }
+.guide-field-note { margin: 0 0 48px; padding: 24px 26px; border: 1px solid #b9d2c4; background: var(--green-pale); }
+.guide-field-note .eyebrow { margin: 0 0 8px; color: var(--green-dark); }
 .article-body h2 { margin: 44px 0 12px; font-size: 25px; }
+.article-body .guide-field-note h2 { margin-top: 0; }
 .article-body h3 { margin: 0 0 10px; font-size: 16px; line-height: 1.5; }
 .article-body p, .article-body li { color: var(--ink-soft); line-height: 1.85; }
 .article-body blockquote { margin: 34px 0; padding: 22px 24px; border-left: 3px solid var(--green); background: var(--green-pale); color: var(--green-dark); font-weight: 650; }

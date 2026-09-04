@@ -73,7 +73,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <h1 id="guide-title">{guide.title}</h1>
           <p>{guide.summary}</p>
           <dl className="guide-meta">
-            <div><dt>작성</dt><dd>{authorName}</dd></div>
+            <div><dt>작성</dt><dd><Link href="/about">{authorName}</Link></dd></div>
             <div><dt>발행</dt><dd><time dateTime={guide.publishedAt}>{guide.publishedAt}</time></dd></div>
             <div><dt>최근 검토</dt><dd><time dateTime={guide.reviewedAt}>{guide.reviewedAt}</time></dd></div>
             <div><dt>검토 범위</dt><dd>공식 출처·계산 가정</dd></div>
@@ -82,6 +82,14 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         </header>
 
         <div className="article-body">
+          {guide.fieldNote ? (
+            <section className="guide-field-note" aria-labelledby="field-note-heading">
+              <p className="eyebrow">FIRST-HAND NOTE · 직접 경험</p>
+              <h2 id="field-note-heading">{guide.fieldNote.heading}</h2>
+              {guide.fieldNote.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            </section>
+          ) : null}
+
           {guide.sections.map((section, index) => (
             <section key={section.heading}>
               <h2>{section.heading}</h2>
