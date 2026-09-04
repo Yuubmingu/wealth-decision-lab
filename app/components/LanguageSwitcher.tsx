@@ -1,33 +1,24 @@
 "use client";
 
 import { Languages } from "lucide-react";
-
-const siteUrl = "https://yuubmingulab.com/";
-
-function englishTranslationUrl(url: string) {
-  return `https://translate.google.com/translate?sl=ko&tl=en&u=${encodeURIComponent(url)}`;
-}
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function LanguageSwitcher() {
-  function openEnglishVersion() {
-    const currentUrl = new URL(window.location.href || siteUrl);
-    currentUrl.search = "";
-    currentUrl.hash = "";
-    window.open(englishTranslationUrl(currentUrl.toString()), "_blank", "noopener,noreferrer");
-  }
+  const pathname = usePathname();
+  const isEnglish = pathname === "/en" || pathname.startsWith("/en/");
 
   return (
-    <button
-      type="button"
+    <Link
+      href={isEnglish ? "/" : "/en"}
       className="language-switch"
-      lang="en"
-      onClick={openEnglishVersion}
-      aria-label="Open this page in English using automatic translation"
-      title="English · Automatic translation · Korean financial rules"
+      hrefLang={isEnglish ? "ko" : "en"}
+      lang={isEnglish ? "ko" : "en"}
+      aria-label={isEnglish ? "한국어 홈페이지로 이동" : "Open the native English overview"}
+      title={isEnglish ? "한국어 홈페이지" : "English overview · Calculations use South Korean rules"}
     >
       <Languages size={16} aria-hidden="true" />
-      <span>EN</span>
-      <small>Auto</small>
-    </button>
+      <span>{isEnglish ? "KR" : "EN"}</span>
+    </Link>
   );
 }

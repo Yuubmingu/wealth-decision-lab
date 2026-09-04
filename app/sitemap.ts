@@ -14,9 +14,11 @@ export const dynamic = "force-static";
  */
 const CONTENT_REVISED = "2026-08-16"; // 계산기 본문·차트·소개 페이지 개편
 const UNCHANGED = "2026-08-01";
+const ENGLISH_HOME_PUBLISHED = "2026-09-04";
 
 const routes: { path: string; lastModified: string }[] = [
   { path: "", lastModified: UNCHANGED },
+  { path: "/en", lastModified: ENGLISH_HOME_PUBLISHED },
   // 본문 보강과 차트 추가로 내용이 크게 바뀐 페이지
   { path: "/calculators/goal-assets", lastModified: CONTENT_REVISED },
   { path: "/calculators/rent-fire", lastModified: CONTENT_REVISED },

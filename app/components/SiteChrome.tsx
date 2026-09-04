@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowUpRight, FlaskConical, Menu } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const navigationItems = [
@@ -20,22 +23,33 @@ const navigationItems = [
 ] as const;
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  const isEnglish = pathname === "/en" || pathname.startsWith("/en/");
+  const items = isEnglish
+    ? [
+        { href: "/en#calculators", label: "Calculators" },
+        { href: "/en#method", label: "Method" },
+        { href: "/guides", label: "Korean guides" },
+        { href: "/about", label: "About" },
+      ]
+    : navigationItems;
+
   return (
     <header className="site-header">
       <div className="shell header-inner">
-        <Link href="/" className="brand" aria-label="부자 회사원의 의사결정 연구소 홈">
+        <Link href={isEnglish ? "/en" : "/"} className="brand" aria-label={isEnglish ? "Wealth Decision Lab home" : "부자 회사원의 의사결정 연구소 홈"}>
           <span className="brand-mark"><FlaskConical size={18} strokeWidth={1.8} /></span>
-          <span>부자 회사원의<br />의사결정 연구소</span>
+          <span>{isEnglish ? <>Wealth<br />Decision Lab</> : <>부자 회사원의<br />의사결정 연구소</>}</span>
         </Link>
         <div className="header-actions">
-          <nav aria-label="주요 메뉴" className="main-nav desktop-nav">
-            {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+          <nav aria-label={isEnglish ? "Main navigation" : "주요 메뉴"} className="main-nav desktop-nav">
+            {items.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
           </nav>
           <LanguageSwitcher />
           <details className="mobile-nav">
-            <summary><Menu size={19} aria-hidden="true" /> 메뉴</summary>
-            <nav aria-label="모바일 주요 메뉴">
-              {navigationItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+            <summary><Menu size={19} aria-hidden="true" /> {isEnglish ? "Menu" : "메뉴"}</summary>
+            <nav aria-label={isEnglish ? "Mobile navigation" : "모바일 주요 메뉴"}>
+              {items.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
             </nav>
           </details>
         </div>
@@ -45,25 +59,28 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  const isEnglish = pathname === "/en" || pathname.startsWith("/en/");
+
   return (
     <footer className="site-footer">
       <div className="shell footer-grid">
         <div>
-          <p className="footer-brand">부자 회사원의 의사결정 연구소</p>
-          <p className="footer-copy">같은 숫자에는 같은 공식으로.<br />선택의 장기 비용을 투명하게 계산합니다.</p>
+          <p className="footer-brand">{isEnglish ? "Wealth Decision Lab" : "부자 회사원의 의사결정 연구소"}</p>
+          <p className="footer-copy">{isEnglish ? <>Consistent formulas for consistent inputs.<br />See the long-term cost of a decision.</> : <>같은 숫자에는 같은 공식으로.<br />선택의 장기 비용을 투명하게 계산합니다.</>}</p>
         </div>
         <div className="footer-links">
-          <Link href="/privacy">개인정보처리방침</Link>
-          <Link href="/terms">이용약관</Link>
-          <Link href="/disclaimer">금융정보 면책</Link>
-          <Link href="/contact">문의</Link>
+          <Link href="/privacy">{isEnglish ? "Privacy (Korean)" : "개인정보처리방침"}</Link>
+          <Link href="/terms">{isEnglish ? "Terms (Korean)" : "이용약관"}</Link>
+          <Link href="/disclaimer">{isEnglish ? "Disclaimer (Korean)" : "금융정보 면책"}</Link>
+          <Link href="/contact">{isEnglish ? "Contact" : "문의"}</Link>
         </div>
         <div className="footer-note">
-          <span>브라우저 안에서만 계산</span>
+          <span>{isEnglish ? "Calculated in your browser" : "브라우저 안에서만 계산"}</span>
           <ArrowUpRight size={16} />
         </div>
       </div>
-      <div className="shell footer-bottom">© 2026 Wealth Decision Lab. 투자 권유가 아닌 시뮬레이션 도구입니다.</div>
+      <div className="shell footer-bottom">{isEnglish ? "© 2026 Wealth Decision Lab. Simulations only, not financial advice." : "© 2026 Wealth Decision Lab. 투자 권유가 아닌 시뮬레이션 도구입니다."}</div>
     </footer>
   );
 }

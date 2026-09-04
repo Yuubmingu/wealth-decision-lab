@@ -15,7 +15,20 @@ test("renders production pages without development preview metadata", async () =
   assert.doesNotMatch(home, developmentPreviewMeta);
   assert.match(home, /부자 회사원의 의사결정 연구소/);
   assert.match(calculator, /내 집 마련 필요현금 계산기/);
-  assert.match(home, /Open this page in English using automatic translation/);
+  assert.match(home, /Open the native English overview/);
+  assert.doesNotMatch(home, /translate\.google\.com|translate\.goog/);
+});
+
+test("publishes a native English overview without claiming the calculators are translated", async () => {
+  const englishHome = await readFile(
+    new URL("../dist/client/en/index.html", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(englishHome, /Turn today(?:&#x27;|&apos;|')s choice/);
+  assert.match(englishHome, /calculator interfaces and detailed sources are currently in Korean/i);
+  assert.match(englishHome, /South Korean rules/);
+  assert.match(englishHome, /aria-label="한국어 홈페이지로 이동"/);
 });
 
 test("uses the custom domain for canonical URLs and discovery files", async () => {
@@ -31,6 +44,7 @@ test("uses the custom domain for canonical URLs and discovery files", async () =
   assert.match(calculator, /rel="canonical" href="https:\/\/yuubmingulab\.com\/calculators\/home-purchase\/"/);
   assert.match(robots, /Sitemap: https:\/\/yuubmingulab\.com\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/yuubmingulab\.com\/calculators\/home-purchase/);
+  assert.match(sitemap, /https:\/\/yuubmingulab\.com\/en\//);
   assert.doesNotMatch(`${home}${calculator}${robots}${sitemap}`, /wealth-decision-lab\.pages\.dev/);
 });
 
